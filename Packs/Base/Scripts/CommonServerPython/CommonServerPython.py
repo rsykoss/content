@@ -149,6 +149,7 @@ class DBotScoreType(object):
     FILE = 'file'
     DOMAIN = 'domain'
     URL = 'url'
+    CVE = 'cve'
 
     def __init__(self):
         # required to create __init__ for create_server_docs.py purpose
@@ -162,7 +163,8 @@ class DBotScoreType(object):
             DBotScoreType.IP,
             DBotScoreType.FILE,
             DBotScoreType.DOMAIN,
-            DBotScoreType.URL
+            DBotScoreType.URL,
+            DBotScoreType.CVE
         )
 
 
