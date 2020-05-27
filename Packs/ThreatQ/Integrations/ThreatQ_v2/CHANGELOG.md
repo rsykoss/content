@@ -1,5 +1,5 @@
 ## [Unreleased]
-Fixing adding indicators to the context data.
+Fixed an issue where indicators were duplicated in the context data.
 
 
 ## [20.5.2] - 2020-05-26
