@@ -1,17 +1,11 @@
-category: Authentication
+category: Data Enrichment & Threat Intelligence
 commonfields:
   id: Checker
   version: -1
 configuration:
-- defaultvalue: https://example.net
-  display: Server URL (e.g. https://example.net)
-  name: url
-  required: true
+- name: url
+  required: false
   type: 0
-- display: Username
-  name: credentials
-  required: true
-  type: 9
 - display: Fetch incidents
   name: isFetch
   required: false
@@ -28,7 +22,64 @@ configuration:
   name: proxy
   required: false
   type: 8
-description: This is the Hello World integration for getting started.
+- display: Chrome Drive Path
+  hidden: false
+  name: drive
+  required: false
+  type: 0
+- display: Virus Total API Key
+  hidden: false
+  name: virustotal_apikey
+  required: false
+  type: 0
+- display: Abused IP DB API Key
+  hidden: false
+  name: abusedipdb_apikey
+  required: false
+  type: 0
+- display: IBM API Key
+  hidden: false
+  name: ibm_key
+  required: false
+  type: 0
+- display: IBM API Password
+  hidden: false
+  name: ibm_pass
+  required: false
+  type: 0
+- display: URLscan API Key
+  hidden: false
+  name: urlscan_apikey
+  required: false
+  type: 0
+- display: Google Safe Browsing API Key
+  hidden: false
+  name: googleSafeBrowsing_apikey
+  required: false
+  type: 0
+- display: Auth0 API Key
+  hidden: false
+  name: auth0_apikey
+  required: false
+  type: 0
+- display: PhishTank API Key
+  hidden: false
+  name: phishtank_apikey
+  required: false
+  type: 0
+- display: PhishTank Project Name
+  hidden: false
+  name: phishtank_user
+  required: false
+  type: 0
+- display: Fraud Guard API Key
+  hidden: false
+  name: fraudguard_apikey
+  required: false
+  type: 0
+description: 'Check reputation of URL, Hash, IP, File using OSINTs: Virus Total (safe=0),
+  Auth0 (safe=0), AbusedIPDB (safe=0), FraudGuard (safe=1), IBM (safe=1), GoogleSafeBrowsing
+  (safe=Safe | Not Found), PhishTank (safe=Not a Phish | Not Found)'
 display: Checker
 name: Checker
 script:
@@ -43,14 +94,94 @@ script:
     deprecated: false
     description: Hello command - prints hello to anyone
     execution: false
-    name: helloworld-say-hello
+    name: hello
     outputs:
     - contextPath: hello
       description: Should be Hello **something** here
       type: String
-  isfetch: true
+  - arguments:
+    - default: false
+      description: For single IOC check
+      isArray: false
+      name: ip
+      required: false
+      secret: false
+    - default: false
+      description: For single IOC check
+      isArray: false
+      name: url
+      required: false
+      secret: false
+    - default: false
+      description: For single IOC check
+      isArray: false
+      name: hash
+      required: false
+      secret: false
+    - default: false
+      isArray: false
+      name: file
+      required: false
+      secret: false
+    deprecated: false
+    description: Checks reputation of URL, Hash, IP  using OSINTs
+    execution: false
+    name: checker
+    outputs:
+    - contextPath: IP.Address
+      description: IP address
+      type: Unknown
+    - contextPath: IP.Reputation.VirusTotal
+      description: Reputation of Virus total
+      type: Unknown
+    - contextPath: IP.Reputation.AbusedIP
+      description: Reputation of Abused IP DB
+      type: Unknown
+    - contextPath: IP.Reputation.FraudGuard
+      type: Unknown
+    - contextPath: IP.Reputation.IBM
+      type: Unknown
+    - contextPath: IP.Reputation.Auth0
+      type: Unknown
+    - contextPath: IP.Verdict
+      type: Unknown
+  - arguments:
+    - default: false
+      description: list of ip addresses to be checked
+      isArray: true
+      name: ips
+      required: false
+      secret: false
+    - default: false
+      description: List of urls to be checked
+      isArray: true
+      name: urls
+      required: false
+      secret: false
+    - default: false
+      description: List of hashes to be checked
+      isArray: true
+      name: hashes
+      required: false
+      secret: false
+    deprecated: false
+    description: Check in batch the reputation of URL, Hash, IP and files  using OSINTs
+    execution: false
+    name: checker-batch
+    outputs:
+    - contextPath: IP
+      type: Unknown
+    - contextPath: URL
+      type: Unknown
+    - contextPath: File.Output
+      type: Unknown
+  dockerimage: demisto/python3:3.7.4.2245
+  feed: false
+  isfetch: false
+  longRunning: false
+  longRunningPort: false
   runonce: false
   script: '-'
-  type: python
   subtype: python3
-  dockerimage: demisto/python3:3.7.4.2245
+  type: python
+fromversion: 5.0.0
