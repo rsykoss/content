@@ -1,6 +1,3 @@
-import json
-from ast import literal_eval
-
 import dateparser
 import demistomock as demisto
 import requests
@@ -17,13 +14,17 @@ import csv
 import sys
 import os
 from time import sleep, time
-from urllib.parse import quote
-import logging
 from requests.auth import HTTPBasicAuth
-# import validators_collection
-# import validators
-# from validators_collection.errors import *
-
+from selenium import webdriver
+from selenium.common.exceptions import *
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+# from bs4 import BeautifulSoup
+from urllib.parse import quote
+import base64
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from datetime import datetime
 
 # Disable insecure warnings
 requests.packages.urllib3.disable_warnings()
@@ -118,6 +119,14 @@ single_mode = False
 vt_headers = {'Accept': 'application/json'}
 ibm_headers = {"Content-Type": "application/json"}
 
+# Selenium driver options
+options = Options()
+options.add_argument("--window-size=1680x1050")
+options.add_experimental_option("excludeSwitches", ["enable-automation", 'enable-logging'])
+options.add_experimental_option('useAutomationExtension', False)
+options.add_argument("--headless")
+timeout = 20
+imageName = ""
 
 class Client(BaseClient):
     """
@@ -175,19 +184,13 @@ def test_module(client):
 
 
 def save_record_csv(data, filename, header):
-    logging.info("Saving Record")
-    # with open(filename, mode="a+", encoding="utf-8", newline="") as csv_file:
-    #     writer = csv.DictWriter(csv_file, fieldnames=header)
-    #     if os.stat(filename).st_size == 0:
-    #         writer.writeheader()
-    #     writer.writerow(data)
-    # header = {
-    #     "Accept-Encoding": "gzip, deflate",
-    #     'Content-Type': 'multipart/form-data'
-    # }
-    # files = {"file": (filename, open(filename, "rb"), 'application-type')}
-    # res = requests.request('POST', "https://192.168.43.199/entry/upload/62", files=files, headers=header)
-    # print(res)
+    demisto.info("Saving Record")
+    with open(filename, mode="a+", encoding="utf-8", newline="") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=header)
+        if os.stat(filename).st_size == 0:
+            writer.writeheader()
+        writer.writerow(data)
+
 
 
 def vt_result(result):
@@ -198,10 +201,10 @@ def vt_result(result):
         undetected = int(result.json()['data']['attributes']['last_analysis_stats']['undetected'])
         rate = str(malicious) + " // " + str(malicious + harmless + suspicious + undetected)
     except (KeyError, TypeError) as e:
-        logging.error(VT + " - vt_result() - " + str(e))
+        demisto.error(VT + " - vt_result() - " + str(e))
         rate = NONE
     except Exception as e:
-        logging.critical(VT + " - vt_result() - " + str(e))
+        demisto.error(VT + " - vt_result() - " + str(e))
         rate = NONE
     finally:
         return rate
@@ -219,15 +222,22 @@ def vt_exception(resp):
             print(VT + ": ERROR - " + str(msg))
         raise Exception(str(msg))
 
+def vt_screenshot(obj):
+    if ss_mode:
+        if screenshot_virusTotal(obj):
+            print(VT + ": " + SS_SAVED)
+        else:
+            print(VT + ": " + SS_FAILED)
+
 
 def virusTotalIP(ip):
-    # vt_screenshot(ip)
+    vt_screenshot(ip)
     try:
         resp = requests.get(VT_IP.format(ip), headers={'Accept': 'application/json', 'x-apikey': VT_KEY})
         vt_exception(resp)
     except Exception as e:
         vt = NONE
-        logging.exception(VT + " - " + str(e))
+        demisto.error(VT + " - " + str(e))
     else:
         # available status: harmless, malicious, suspicious, timeout, undetected
         vt = vt_result(resp)
@@ -236,13 +246,13 @@ def virusTotalIP(ip):
 
 
 def virusTotalURL(url):
+    headers = {'Accept': 'application/json', 'x-apikey': VT_KEY}
     try:  # send url to scan
-        headers = {'Accept': 'application/json', 'x-apikey': VT_KEY}
         resp = requests.post(VT_URL, headers=headers, data={'url': url})
         vt_exception(resp)
         req_id = resp.json()['data']['id'].split('-')[1]
     except Exception as e:
-        logging.error(VT + " - " + str(e))
+        demisto.error(VT + " - " + str(e))
     try:
         # fetch scan results
         resp = requests.get(
@@ -258,14 +268,14 @@ def virusTotalURL(url):
         vt_exception(resp)
     except Exception as e:
         vt = NONE
-        logging.exception(VT + " - " + str(e))
+        demisto.error(VT + " - " + str(e))
     else:
         # available status: harmless, malicious, suspicious, timeout, undetected
         vt = vt_result(resp)
     finally:
-        # vt_screenshot(url)
+        vt_screenshot(url)
         print(VT + ": " + vt)
-        logging.info(VT + " - " + vt)
+        demisto.info(VT + " - " + vt)
         return vt
 
 # Get MD5 hash
@@ -295,7 +305,7 @@ def virusTotalFile(file):
         vt_exception(resp)
     except Exception as e:
         vt = NONE
-        logging.exception(VT + " - " + str(e))
+        demisto.error(VT + " - " + str(e))
     else:
         vt = vt_result(resp)
         filehash = str(getmd5(file))
@@ -304,12 +314,12 @@ def virusTotalFile(file):
         vt = [vt[4], filehash]
     finally:
         print(VT + ": " + str(vt))
-        logging.info(VT + " - " + str(vt))
+        demisto.info(VT + " - " + str(vt))
         return vt
 
 
 def virusTotalHash(a_hash):
-    # vt_screenshot(a_hash)
+    vt_screenshot(a_hash)
     if mode == FILE_MODE:
         a_hash = a_hash[0]
     try:
@@ -317,13 +327,13 @@ def virusTotalHash(a_hash):
         vt_exception(resp)
     except Exception as e:
         vt = NONE
-        logging.exception(VT + " - " + str(e))
+        demisto.error(VT + " - " + str(e))
     else:
         # Status: confirmed-timeout, failure, harmless, malicious, suspicious, timeout, type-unsupported, undetected
         vt = vt_result(resp)
     finally:
         print(VT + ": " + str(vt))
-        logging.info(VT + " - " + vt)
+        demisto.info(VT + " - " + vt)
 
     try:
         md5 = resp.json()['data']['attributes']['md5']
@@ -331,7 +341,7 @@ def virusTotalHash(a_hash):
         sha256 = resp.json()['data']['attributes']['sha256']
         print("md5: " + md5 + ", SHA1: " + sha1 + ", SHA256: " + sha256)
     except (KeyError, TypeError) as e:
-        logging.error(VT + " - virusTotalHash() - " + str(e))
+        demisto.error(VT + " - virusTotalHash() - " + str(e))
         md5 = NONE
         sha256 = NONE
         sha1 = NONE
@@ -341,14 +351,14 @@ def virusTotalHash(a_hash):
 
 
 def getScreenshotIBM(obj):
-    rate = ''  # ss.IBM(obj)
+    rate = screenshot_IBM(obj)
     print(IBM + ": " + rate)
-    logging.info(IBM + " - " + rate)
+    demisto.info(IBM + " - " + rate)
     return rate
 
 
 def IBM_exceptionHandle(resp):
-    logging.error(IBM + " - " + str(resp.json()))
+    demisto.error(IBM + " - " + str(resp.json()))
     if resp.status_code == 402:
         print(IBM + ": Monthly quota exceeded")
     elif resp.status_code == 401:
@@ -374,13 +384,13 @@ def ibm_url(url):
                 rate = UNKNOWN
         elif resp.status_code == 404:
             rate = UNKNOWN
-            logging.info(IBM + " - Not found in database")
+            demisto.info(IBM + " - Not found in database")
         else:
             rate = NONE
             IBM_exceptionHandle(resp)
 
         print(IBM + ": " + rate)
-        logging.info(IBM + " - " + rate)
+        demisto.info(IBM + " - " + rate)
         return rate
 
 
@@ -401,24 +411,24 @@ def ibm_IP(ip):
                 rate = UNKNOWN
         elif resp.status_code == 404:
             rate = UNKNOWN
-            logging.warning(IBM + " - Not found in database")
+            demisto.info(IBM + " - Not found in database")
         else:
             rate = NONE
             IBM_exceptionHandle(resp)
 
         print(IBM + ": " + rate)
-        logging.info(IBM + " - " + rate)
+        demisto.info(IBM + " - " + rate)
         return rate
 
 # only works for url, no ip support
 
 
 def abusedIP(ip):
-    # if ss_mode:
-    #     if ss.abusedIP(ip):
-    #         print(ABIP + ": " + SS_SAVED)
-    #     else:
-    #         print(ABIP + ": " + SS_FAILED)
+    if ss_mode:
+        if screenshot_abusedIP(ip):
+            print(ABIP + ": " + SS_SAVED)
+        else:
+            print(ABIP + ": " + SS_FAILED)
     headers = {
         'Key': ABIP_KEY,
         'Accept': 'application/json',
@@ -434,36 +444,36 @@ def abusedIP(ip):
             print(ABIP + ": " + error[0]['detail'])
         elif str(error[0]['status']).startswith('5'):
             print(ABIP + EX_SERVER.format(ABIP))
-        logging.error(ABIP + " - virusTotalHash() - " + str(error[0]['detail']))
+        demisto.error(ABIP + " - virusTotalHash() - " + str(error[0]['detail']))
     finally:
         print(ABIP + ": " + rate)
-        logging.info(ABIP + " - " + rate)
+        demisto.info(ABIP + " - " + rate)
         return rate
 
 
 def fraudGuard(ip):
-    # if ss_mode:
-    #     if ss.fraudguard(ip):
-    #         print(FG + ": " + SS_SAVED)
-    #     else:
-    #         print(FG + ": " + SS_FAILED)
+    if ss_mode:
+        if screenshot_fraudguard(ip):
+            print(FG + ": " + SS_SAVED)
+        else:
+            print(FG + ": " + SS_FAILED)
 
     try:
         username = FG_KEY.strip().split(':')[0]
         password = FG_KEY.strip().split(':')[1]
     except IndexError:
         rate = NONE
-        logging.error(FG + " - " + "No API keys provided")
+        demisto.error(FG + " - " + "No API keys provided")
         print(FG + ": API keys not provided in config.txt")
         print(FG + ": " + rate)
-        logging.info(FG + " - " + rate)
+        demisto.info(FG + " - " + rate)
         return rate
     resp = requests.get(FG_IP.format(ip), verify=True, auth=HTTPBasicAuth(username, password))
     try:
         rate = json.loads(resp.text)['risk_level'] + " // 5"
     except:
         rate = NONE
-        logging.error(FG + " - " + str(resp.text))
+        demisto.error(FG + " - " + str(resp.text))
         if resp.status_code == 401:
             print(FG + ": Invalid key - " + FG_KEY + " - Check credentials")
         elif str(resp.status_code).startswith('5'):
@@ -472,16 +482,16 @@ def fraudGuard(ip):
             print(FG + ": API limit reached for FG key")
     finally:
         print(FG + ": " + rate)
-        logging.info(FG + " - " + rate)
+        demisto.info(FG + " - " + rate)
         return rate
 
 
 def auth0(ip):
-    # if ss_mode:
-    #     if ss.auth0(ip):
-    #         print(AUTH0 + ": " + SS_SAVED)
-    #     else:
-    #         print(AUTH0 + ": " + SS_FAILED)
+    if ss_mode:
+        if screenshot_auth0(ip):
+            print(AUTH0 + ": " + SS_SAVED)
+        else:
+            print(AUTH0 + ": " + SS_FAILED)
     headers = {
         "Accept": "application/json",
         "X-Auth-Token": AUTH0_KEY
@@ -491,19 +501,19 @@ def auth0(ip):
         score = str(resp['fullip']['score']).strip()
     except:
         score = NONE
-        logging.exception(AUTH0 + " - " + str(resp))
+        demisto.error(AUTH0 + " - " + str(resp))
     finally:
         print(AUTH0 + ": " + score)
-        logging.info(AUTH0 + " - " + score)
+        demisto.info(AUTH0 + " - " + score)
         return score
 
 
 def googleSafe(url):
-    # if ss_mode:
-    #     if ss.googleSafe(url):
-    #         print(GOOGLE + ": " + SS_SAVED)
-    #     else:
-    #         print(GOOGLE + ": " + SS_FAILED)
+    if ss_mode:
+        if screenshot_googleSafe(url):
+            print(GOOGLE + ": " + SS_SAVED)
+        else:
+            print(GOOGLE + ": " + SS_FAILED)
     data = {
         "client": {"clientId": "ProjectAuto", "clientVersion": "1.5.2"},
         "threatInfo": {
@@ -524,18 +534,18 @@ def googleSafe(url):
             print(GOOGLE + ": Requests Exceeded!")
         elif str(resp.status_code).startswith('5'):
             print(GOOGLE + EX_SERVER.format(GOOGLE))
-        logging.error(GOOGLE + " - " + str(resp.json()))
+        demisto.error(GOOGLE + " - " + str(resp.json()))
     print(GOOGLE + ": " + gsb)
-    logging.info(GOOGLE + " - " + gsb)
+    demisto.info(GOOGLE + " - " + gsb)
     return gsb
 
 
 def phishtank(url):
-    # if ss_mode:
-    #     if ss.phishtank(url):
-    #         print(PHISH + ": " + SS_SAVED)
-    #     else:
-    #         print(PHISH + ": " + SS_FAILED)
+    if ss_mode:
+        if screenshot_phishtank(url):
+            print(PHISH + ": " + SS_SAVED)
+        else:
+            print(PHISH + ": " + SS_FAILED)
     data = {
         "url": url,
         'format': "json",
@@ -560,18 +570,262 @@ def phishtank(url):
             result = UNKNOWN
     else:
         result = NONE
-        logging.error(PHISH + " - " + str(resp.json()))
+        demisto.error(PHISH + " - " + str(resp.json()))
         if resp.status_code == 509:
             print(PHISH + ": Requests Exceeded! Please wait at most 5 minutes to reset the number of requests.")
     print(PHISH + ": " + str(result))
-    logging.info(PHISH + " - " + str(result))
+    demisto.info(PHISH + " - " + str(result))
     return result
+
+##Screenshot mode
+
+def screenshot_phishtank(url):
+    driver = webdriver.Chrome(executable_path=DRIVE, options=options)
+    driver.get(PHISH_SS)
+    try:
+        element_present = EC.presence_of_element_located((By.ID, 'main'))
+        WebDriverWait(driver, timeout).until(element_present)
+        input = driver.find_element_by_xpath("//input[@type='text' and @name='isaphishurl' and @value='http://']")
+        input.clear()
+        input.send_keys(url)
+        driver.find_element_by_xpath("//input[@type='submit' and @class='submitbutton']").click()
+        driver.save_screenshot(imageName.format(PHISH))
+        saved = True
+        demisto.info(PHISH + " - Screenshot saved at " + imageName.format(PHISH))
+    except WebDriverException as e:
+        demisto.error(PHISH + " - Screenshot - " + str(e))
+        saved = False
+    finally:
+        driver.quit()
+        return saved
+
+def screenshot_auth0(ip):
+    driver = webdriver.Chrome(executable_path=DRIVE, options=options)
+    driver.get(AUTH0_SS.format(ip))
+    try:
+        element_present = EC.presence_of_element_located((By.XPATH, '//section[@data-results-register="true"]'))
+        WebDriverWait(driver, timeout).until(element_present)
+        driver.execute_script("window.scrollTo(0, 200)")
+        driver.save_screenshot(imageName.format(AUTH0))
+        saved = True
+        demisto.info(AUTH0 + " - Screenshot saved at " + imageName.format(AUTH0))
+    except WebDriverException as e:
+        demisto.error(AUTH0 + " - Screenshot - " + str(e))
+        saved = False
+    finally:
+        driver.quit()
+        return saved
+
+def screenshot_googleSafe(url):
+    driver = webdriver.Chrome(executable_path=DRIVE, options=options)
+    driver.get(GOOGLE_SS.format(url))
+    try:
+        element_present = EC.presence_of_element_located((By.TAG_NAME, 'data-tile'))
+        WebDriverWait(driver, timeout).until(element_present)
+        driver.save_screenshot(imageName.format(GOOGLE))
+        saved = True
+        demisto.info(GOOGLE + " - Screenshot saved at " + imageName.format(GOOGLE))
+    except WebDriverException as e:
+        demisto.error(GOOGLE + " - Screenshot - " + str(e))
+        saved = False
+    finally:
+        driver.quit()
+        return saved
+
+def screenshot_fraudguard(ip):
+    driver = webdriver.Chrome(executable_path=DRIVE, options=options)
+    driver.get(FG_SS.format(ip))
+    try:
+        element_present = EC.presence_of_element_located((By.CLASS_NAME, 'col-md-6'))
+        WebDriverWait(driver, timeout).until(element_present)
+        driver.execute_script("window.scrollTo(0, 500)")
+        driver.save_screenshot(imageName.format(FG))
+        saved = True
+        demisto.info(FG + " - Screenshot saved at " + imageName.format(FG))
+    except WebDriverException as e:
+        demisto.error(FG + " - Screenshot - " + str(e))
+        saved = False
+    finally:
+        driver.quit()
+        return saved
+
+def screenshot_abusedIP(ip):
+    driver = webdriver.Chrome(executable_path=DRIVE, options=options)
+    driver.get(ABIP_SS.format(ip))
+    try:
+        element_present = EC.presence_of_element_located((By.CLASS_NAME, 'well'))
+        WebDriverWait(driver, timeout).until(element_present)
+        driver.save_screenshot(imageName.format(ABIP))
+        saved = True
+        demisto.info(ABIP + " - Screenshot saved at " + imageName.format(ABIP))
+    except WebDriverException as e:
+        demisto.error(ABIP + " - Screenshot - " + str(e))
+        saved = False
+    finally:
+        driver.quit()
+        return saved
+
+# for url and ip
+def screenshot_IBM(obj):
+    driver = webdriver.Chrome(executable_path=DRIVE, options=options)
+    # driver.implicitly_wait(5)
+    driver.get(IBM_SS.format(quote(obj)))
+    element_present = EC.presence_of_element_located((By.CLASS_NAME, 'modal-dialog'))
+    WebDriverWait(driver, timeout).until(element_present)
+    # terms and condition + guest login
+    driver.find_element_by_xpath("//input[@ng-model='termsCheckbox']").click()
+    driver.find_element_by_xpath("//a[@ng-click='guest()']").click()
+    try:  # Close help pop up if there is
+        element = driver.find_element_by_xpath("//button[@ng-click='$ctrl.actionButtonHandler()']")
+        driver.execute_script("arguments[0].click();", element)
+    except WebDriverException as e:
+        demisto.error(IBM + " - Screenshot - " + str(e))
+        pass
+    # Make sure score element is there for screenshot
+    # element_present = EC.presence_of_element_located((By.ID, 'report'))
+    # WebDriverWait(driver, timeout).until(element_present)
+    ## To print score
+    try:
+        element_present = EC.presence_of_element_located((By.ID, 'report'))
+        WebDriverWait(driver, timeout).until(element_present)
+        riskLevel = str(driver.find_element_by_class_name('scorebackgroundfilter numtitle').text).split()[0]
+        # soup = BeautifulSoup(driver.page_source, 'html.parser')
+        # riskLevel = soup.find('div', attrs={'class': 'scorebackgroundfilter numtitle'}).text.split()[0]
+        if riskLevel != "Unknown":
+            riskLevel = str(riskLevel) + " out of 10"
+    except:
+        riskLevel = NONE
+        demisto.error(IBM + " - Screenshot")
+    try:
+        driver.save_screenshot(imageName.format(IBM))
+        print(IBM + ": " + SS_SAVED)
+        demisto.info(IBM + " - Screenshot saved at " + imageName.format(IBM))
+    except WebDriverException as e:
+        demisto.error(IBM + " - Screenshot - " + str(e))
+        print(IBM + ": " + SS_FAILED)
+    finally:
+        driver.quit()
+        return riskLevel
+
+def screenshot_urlscan(uuid):
+    driver = webdriver.Chrome(executable_path=DRIVE, options=options)
+    driver.get(URLSCAN_SS.format(uuid))
+    try:
+        element_present = EC.presence_of_element_located((By.CLASS_NAME, 'container'))
+        WebDriverWait(driver, timeout).until(element_present)
+        driver.save_screenshot(imageName.format(URLSCAN))
+        saved = True
+        demisto.info(URLSCAN + " - Screenshot saved at " + imageName.format(URLSCAN))
+    except WebDriverException as e:
+        demisto.error(URLSCAN + " - Screenshot - " + str(e))
+        saved = False
+    finally:
+        driver.quit()
+        return saved
+
+def screenshot_virusTotal(obj):
+    # print('screenshotmode')
+    driver = webdriver.Chrome(executable_path=DRIVE, options=options)
+    driver.implicitly_wait(3)
+    target = obj
+    identifier = mode
+    if mode == URL_MODE:
+        encoded_url = base64.b64encode(obj.encode())
+        target = encoded_url.decode().replace('=', '')
+    elif mode == IP_MODE:
+        identifier = 'ip-address'
+    elif mode == HASH_MODE:
+        identifier = 'file'
+    elif mode == FILE_MODE:
+        target = obj[0]
+        makeFileName(obj)
+    driver.get(VT_SS.format(identifier=identifier, target=target))
+
+    try:
+        element_present = EC.presence_of_element_located((By.TAG_NAME, 'vt-virustotal-app'))
+        WebDriverWait(driver, timeout).until(element_present)
+        ## To check scores are same with the VT API
+        root = str(driver.find_element_by_tag_name('vt-virustotal-app').text)
+        res = root.find("Community\nScore")
+        while res is -1:
+            sleep(1)
+            root = str(driver.find_element_by_tag_name('vt-virustotal-app').text)
+            res = root.find("Community\nScore")
+        # positives = int(''.join(list(filter(str.isdigit, substr.split("/")[0]))))
+        # total = int(''.join(list(filter(str.isdigit, substr.split("/")[1]))))
+        # rate = str(positives) + " out of " + str(total)
+        # print(rate)
+        driver.save_screenshot(imageName.format(VT))
+        saved = True
+        demisto.info(VT + " - Screenshot saved at " + imageName.format(VT))
+    except WebDriverException as e:
+        demisto.error(VT + " - Screenshot - " + str(e))
+        saved = False
+    finally:
+        driver.quit()
+        return saved
+
+# works for both ip or url
+def screenshot_ciscoTalos(iporurl):
+    # Initialise selenium driver
+    driver = webdriver.Chrome(executable_path=DRIVE, options=options)
+    driver.get(CISCO_SS + quote(iporurl))
+    try:
+        element_present = EC.presence_of_element_located((By.CLASS_NAME, 'new-legacy-label'))
+        WebDriverWait(driver, timeout).until(element_present)
+        web_reputation = str(driver.find_element_by_class_name('new-legacy-label').text).split()[0]
+        # soup = BeautifulSoup(driver.page_source, 'html.parser')
+        # web_reputation = soup.find('span', attrs={'class': 'new-legacy-label'}).text.split()[0]
+        driver.save_screenshot(imageName.format(CISCO))
+        print(CISCO + ": " + SS_SAVED)
+        demisto.info(CISCO + " - Screenshot saved at " + imageName.format(CISCO))
+        # results: Trusted, Favorable, Neutral, Questionable, Untrusted, Unknown
+    except WebDriverException as e:
+        web_reputation = NONE
+        demisto.error(CISCO + " - Screenshot - " + str(e))
+        print(CISCO + ": " + SS_FAILED)
+        try:
+            element_present = EC.presence_of_element_located((By.ID, 'cf-wrapper'))
+            WebDriverWait(driver, timeout).until(element_present)
+            print(CISCO + ": Please go to {} to check if captcha is required and complete it once"
+                  .format(CISCO_SS + quote(iporurl)))
+            demisto.error(CISCO + " - Recaptcha is required")
+        except:
+            pass
+    finally:
+        driver.quit()
+        print(CISCO + ": " + web_reputation)
+        demisto.info(CISCO_SS + " - " + web_reputation)
+        return web_reputation
+
+# For url and ip
+def makeFileName(obj):
+    name = obj
+    if mode == URL_MODE:
+        name = obj.split("://")
+        if len(name) >= 2:
+            name = name[1].split("/")[0]
+        else:
+            name = name[0].split("/")[0]
+    elif mode == FILE_MODE:
+        name = obj[1].split("/")[-1].split(".")[0]
+    return "Images/" + mode + "/" + name + "_{}.png"
+
 
 
 def addScore(name, safescore, score, data, safe, block):
     data[name] = score
     if score != NONE:
         if score.startswith(safescore) or score == UNKNOWN:
+            safe.append(name)
+        else:
+            block.append(name)
+    return data, safe, block
+
+def addScore_cisco(name, score, data, safe, block):
+    data[name] = score
+    if score != NONE:
+        if score == "Neutral" or score == "Favorable" or score == "Trusted" or score == "Unknown":
             safe.append(name)
         else:
             block.append(name)
@@ -588,6 +842,8 @@ def get_verdict(output):
 
 def ipmode(ip):
     output = {"ip": ip, "Verdict": NONE, SAFE: [], BLOCK: []}
+    if ss_mode:
+        imageName = makeFileName(ip)
     safe = []
     block = []
     vt = virusTotalIP(ip)
@@ -600,10 +856,9 @@ def ipmode(ip):
     output, safe, block = addScore(IBM, "1 ", ibm_rec, output, safe, block)
     ath0 = auth0(ip)
     output, safe, block = addScore(AUTH0, "0", ath0, output, safe, block)
-    # data = [ip, ibm_rec, vt, abip, fg, ath0]
-    # if ss_mode:
-    #     ct = ss.ciscoTalos(ip)
-    #     data.append(ct)
+    if ss_mode:
+        ct = screenshot_ciscoTalos(ip)
+        output, safe, block = addScore_cisco(CISCO, ct, output, safe, block)
     output[SAFE] = safe
     output[BLOCK] = block
     return get_verdict(output)
@@ -611,6 +866,8 @@ def ipmode(ip):
 
 def urlmode(url):
     output = {"url": url, "Verdict": NONE, SAFE: [], BLOCK: []}
+    if ss_mode:
+        imageName = makeFileName(url)
     safe = []
     block = []
     vt = virusTotalURL(url)
@@ -622,14 +879,12 @@ def urlmode(url):
     pt = phishtank(url)
     output, safe, block = addScore(PHISH, "Not ", pt, output, safe, block)
     # data = [url, ibm_rec, vt, gsb, pt]
-    # if ss_mode:
-    #     usc = urlscan(url)
-    #     uscuuid = usc[1]
-    #     usc = usc[0]
-    #     ct = ss.ciscoTalos(url)
-    #     data.append(usc)
-    #     data.append(uscuuid)
-    #     data.append(ct)
+    if ss_mode:
+        usc = screenshot_urlscan(url)
+        uscuuid = usc[1]
+        usc = usc[0]
+        ct = screenshot_ciscoTalos(url)
+        output, safe, block = addScore_cisco(CISCO, ct, output, safe, block)
     output[SAFE] = safe
     output[BLOCK] = block
     return get_verdict(output)
@@ -637,6 +892,8 @@ def urlmode(url):
 
 def hashmode(a_hash):
     output = {"hash": a_hash, "Verdict": NONE}
+    if ss_mode:
+        imageName = makeFileName(a_hash)
     vt = virusTotalHash(a_hash)
     output["MD5"] = vt[1]
     output["SHA1"] = vt[2]
@@ -653,6 +910,8 @@ def hashmode(a_hash):
 
 def filemode(a_file):
     output = {"file": a_file, "Verdict": NONE}
+    if ss_mode:
+        imageName = makeFileName(a_file)
     vt = virusTotalFile(a_file)
     output[VT] = vt[0]
     output["File Hash"] = vt[1]
@@ -662,57 +921,69 @@ def filemode(a_file):
         pass
     else:
         output["Verdict"] = BLOCK
-    return
+    return output
 
 
 def checker():
-    # variables
     args = demisto.args()
-    # if ss_mode:
-    #     ss.makeFileName(file_to_read)
+    ss_mode = False
+    if args.get('screenshot') == 'true':
+        ss_mode = True
     output = NONE
-    markdown = NONE
+    markdown = ""
     output_key = NONE
     ec = {}  # type: dict
 
     if args.get('ip'):
         output = ipmode(args.get('ip'))
-        markdown = '### Indicator: ' + args.get('ip') + '\n'
-        markdown += tableToMarkdown('Results', output, headers=['ip', 'Verdict', SAFE, BLOCK, VT, ABIP, FG, IBM, AUTH0])
+        header = ['ip', 'Verdict', SAFE, BLOCK, VT, ABIP, FG, IBM, AUTH0]
+        rep = [
+            output[VT],
+            output[ABIP],
+            output[FG],
+            output[IBM],
+            output[AUTH0]
+        ]
+        if ss_mode:
+            header.append(CISCO)
+            rep.append(output[CISCO])
+        markdown += '### Indicator: ' + args.get('ip') + '\n'
+        markdown += tableToMarkdown('Results', output, headers=header)
         output_key = 'ip'
         ec.update({
             outputPaths['ip']: {
                 'Address': output['ip'],
-                'Reputation': [
-                    output[VT],
-                    output[ABIP],
-                    output[FG],
-                    output[IBM],
-                    output[AUTH0]
-                ],
+                'Reputation': rep,
                 'Verdict': output["Verdict"]
             }
         })
     elif args.get('url'):
         output = urlmode(args.get('url'))
-        markdown = '### Indicator: ' + args.get('url') + '\n'
-        markdown += tableToMarkdown('Results', output, headers=['url', 'Verdict', SAFE, BLOCK, VT, IBM, GOOGLE, PHISH])
+        header = ['url', 'Verdict', SAFE, BLOCK, VT, IBM, GOOGLE, PHISH]
+        rep = [
+            output[VT],
+            output[IBM],
+            output[GOOGLE],
+            output[PHISH]
+        ]
+        if ss_mode:
+            header.append(URLSCAN)
+            header.append(CISCO)
+            rep.append(output[URLSCAN])
+            rep.append(output[CISCO])
+        markdown += '### Indicator: ' + args.get('url') + '\n'
+        markdown += tableToMarkdown('Results', output, headers=header)
         output_key = 'url'
         ec.update({
             outputPaths['url']: {
                 'URL': output['url'],
-                'Reputation': [
-                    output[VT],
-                    output[IBM],
-                    output[GOOGLE],
-                    output[PHISH]
-                ],
+                'Reputation': rep,
                 'Verdict': output["Verdict"]
             }
         })
     elif args.get('hash'):
         output = hashmode(args.get('hash'))
-        markdown = '### Indicator: ' + args.get('hash') + '\n'
+        markdown += '### Indicator: ' + args.get('hash') + '\n'
         markdown += tableToMarkdown('Results', output, headers=['hash', 'Verdict', "MD5", "SHA1", "SHA256", VT])
         output_key = 'hash'
         ec.update({
@@ -727,7 +998,7 @@ def checker():
         })
     elif args.get('file'):
         output = filemode(args.get('file'))
-        markdown = '### Indicator: ' + args.get('file') + '\n'
+        markdown += '### Indicator: ' + args.get('file') + '\n'
         markdown += tableToMarkdown('Results', output, headers=['file', 'Verdict', VT])
         output_key = 'file'
         ec.update({
@@ -738,7 +1009,7 @@ def checker():
             }
         })
     else:
-        markdown = help()
+        markdown += help()
 
     results = CommandResults(
         readable_output=markdown,
@@ -750,62 +1021,76 @@ def checker():
 
 
 def checker_batch():
-    # variables
     args = demisto.args()
-    # if ss_mode:
-    #     ss.makeFileName(file_to_read)
+    ss_mode = False
+    if args.get('screenshot') == 'true':
+        ss_mode = True
     markdown = ""
     output_key = ""
     ec = {}  # type: dict
     result = []
+    filename = ""
     if args.get('ips'):
         header = ['ip', 'Verdict', SAFE, BLOCK, VT, ABIP, FG, IBM, AUTH0]
+        if ss_mode:
+            header.append(CISCO)
         for address in args.get('ips'):
             ip = address["Address"]
             output = ipmode(ip)
             result.append(output)
-            save_record_csv(output, "ip.csv", header)
+            rep = [
+                output[VT],
+                output[ABIP],
+                output[FG],
+                output[IBM],
+                output[AUTH0]
+            ]
+            if ss_mode:
+                rep.append(output[CISCO])
+            output_key = 'ip'
+            filename = "ip_{}.csv".format(datetime.now().strftime("%Y-%m-%d_%H%M"))
+            save_record_csv(output, filename, header)
             ec.update({
                 outputPaths['ip']: {
                     'Address': output['ip'],
-                    'Reputation': [
-                        output[VT],
-                        output[ABIP],
-                        output[FG],
-                        output[IBM],
-                        output[AUTH0]
-                    ],
+                    'Reputation': rep,
                     'Verdict': output["Verdict"]
                 }
             })
-
-        markdown = '### IP Batch Reputation Check\n'
+        markdown += '### IP Batch Reputation Check\n'
         markdown += tableToMarkdown('Results', result, headers=header)
-        output_key = 'ip'
 
     elif args.get('urls'):
         header = ['url', 'Verdict', SAFE, BLOCK, VT, IBM, GOOGLE, PHISH]
+        if ss_mode:
+            header.append(URLSCAN)
+            header.append(CISCO)
+        f = None
         for link in args.get('urls'):
             url = link["Name"]
             output = urlmode(url)
             result.append(output)
-            save_record_csv(output, "url.csv", header)
+            rep = [
+                output[VT],
+                output[IBM],
+                output[GOOGLE],
+                output[PHISH]
+            ]
+            if ss_mode:
+                rep.append(output[URLSCAN])
+                rep.append(output[CISCO])
+            output_key = 'url'
+            filename = "url_{}.csv".format(datetime.now().strftime("%Y-%m-%d_%H%M"))
+            save_record_csv(output, filename, header)
             ec.update({
                 outputPaths['url']: {
                     'URL': output['url'],
-                    'Reputation': [
-                        output[VT],
-                        output[IBM],
-                        output[GOOGLE],
-                        output[PHISH]
-                    ],
+                    'Reputation': rep,
                     'Verdict': output["Verdict"]
                 }
             })
-
-        markdown = '### URL Batch Reputation Check\n'
+        markdown += '### URL Batch Reputation Check\n'
         markdown += tableToMarkdown('Results', result, headers=header)
-        output_key = 'url'
 
     elif args.get('hashes'):
         header = ['hash', 'Verdict', "MD5", "SHA1", "SHA256", VT]
@@ -813,7 +1098,9 @@ def checker_batch():
             h = next(iter(a_hash.values()))
             output = hashmode(h)
             result.append(output)
-            save_record_csv(output, "url.csv", header)
+            output_key = 'hash'
+            filename = "hash_{}.csv".format(datetime.now().strftime("%Y-%m-%d_%H%M"))
+            save_record_csv(output, filename, header)
             ec.update({
                 'Hash': output['hash'],
                 'Equivalent': [
@@ -825,19 +1112,17 @@ def checker_batch():
                 'Verdict': output["Verdict"]
             })
 
-        markdown = '### Hash Batch Reputation Check\n'
+        markdown += '### Hash Batch Reputation Check\n'
         markdown += tableToMarkdown('Results', result, headers=header)
-        output_key = 'hash'
 
     else:
-        markdown = help()
+        markdown += help()
 
     ec.update({
         outputPaths['file']: {
             'Output': result
         }
     })
-
     results = CommandResults(
         readable_output=markdown,
         outputs_prefix='Checker',
@@ -845,6 +1130,8 @@ def checker_batch():
         outputs=result
     )
     return_results(results)
+    res = fileResult(filename=filename, data=open(filename, "rb").read())
+    return_results(res)
 
 
 def help():

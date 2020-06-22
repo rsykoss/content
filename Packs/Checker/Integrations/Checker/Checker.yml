@@ -123,6 +123,17 @@ script:
       name: file
       required: false
       secret: false
+    - auto: PREDEFINED
+      default: false
+      defaultValue: 'false'
+      description: To enable screenshot mode for any IOC check
+      isArray: false
+      name: screenshot
+      predefined:
+      - 'true'
+      - ' false'
+      required: false
+      secret: false
     deprecated: false
     description: Checks reputation of URL, Hash, IP  using OSINTs
     execution: false
@@ -164,6 +175,17 @@ script:
       name: hashes
       required: false
       secret: false
+    - auto: PREDEFINED
+      default: false
+      defaultValue: 'false'
+      description: To enable screenshot mode for batch IOC check
+      isArray: false
+      name: screenshot
+      predefined:
+      - 'true'
+      - ' false'
+      required: false
+      secret: false
     deprecated: false
     description: Check in batch the reputation of URL, Hash, IP and files  using OSINTs
     execution: false
@@ -175,7 +197,7 @@ script:
       type: Unknown
     - contextPath: File.Output
       type: Unknown
-  dockerimage: demisto/python3:3.7.4.2245
+  dockerimage: demisto/chromium:1.0.0.6596
   feed: false
   isfetch: false
   longRunning: false
