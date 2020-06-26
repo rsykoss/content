@@ -22,11 +22,6 @@ configuration:
   name: proxy
   required: false
   type: 8
-- display: Chrome Drive Path
-  hidden: false
-  name: drive
-  required: false
-  type: 0
 - display: Virus Total API Key
   hidden: false
   name: virustotal_apikey
@@ -65,11 +60,6 @@ configuration:
 - display: PhishTank API Key
   hidden: false
   name: phishtank_apikey
-  required: false
-  type: 0
-- display: PhishTank Project Name
-  hidden: false
-  name: phishtank_user
   required: false
   type: 0
 - display: Fraud Guard API Key
