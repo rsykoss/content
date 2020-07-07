@@ -76,21 +76,6 @@ script:
   commands:
   - arguments:
     - default: false
-      description: The name of whom you want to say hello to.
-      isArray: false
-      name: name
-      required: false
-      secret: false
-    deprecated: false
-    description: Hello command - prints hello to anyone
-    execution: false
-    name: hello
-    outputs:
-    - contextPath: hello
-      description: Should be Hello **something** here
-      type: String
-  - arguments:
-    - default: false
       description: For single IOC check
       isArray: false
       name: ip
@@ -121,7 +106,7 @@ script:
       name: screenshot
       predefined:
       - 'true'
-      - ' false'
+      - 'false'
       required: false
       secret: false
     deprecated: false
@@ -173,7 +158,25 @@ script:
       name: screenshot
       predefined:
       - 'true'
-      - ' false'
+      - 'false'
+      required: false
+      secret: false
+    - default: false
+      description: Entry ID of the file with the list of IOCs. File can be a text
+        or csv file
+      isArray: false
+      name: entryID
+      required: false
+      secret: false
+    - auto: PREDEFINED
+      default: false
+      description: WHich indicator type is populated in the file
+      isArray: false
+      name: mode
+      predefined:
+      - ip
+      - url
+      - hash
       required: false
       secret: false
     deprecated: false
@@ -187,6 +190,29 @@ script:
       type: Unknown
     - contextPath: File.Output
       type: Unknown
+  - arguments:
+    - auto: PREDEFINED
+      default: false
+      defaultValue: 'false'
+      description: To enable screenshot mode for batch IOC check
+      isArray: false
+      name: screenshot
+      predefined:
+      - 'true'
+      - 'false'
+      required: false
+      secret: false
+    - default: false
+      description: entryID of the file
+      isArray: false
+      name: entryID
+      required: false
+      secret: false
+    deprecated: false
+    description: Extracts IOCs from attached file automatically and does reputation
+      checks
+    execution: false
+    name: checker-extract
   dockerimage: demisto/chromium:1.0.0.6596
   feed: false
   isfetch: false

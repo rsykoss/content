@@ -1,4 +1,7 @@
+import ipaddress
+
 import dateparser
+from idna import unicode
 from selenium.webdriver.chrome.options import Options
 
 import demistomock as demisto
@@ -7,13 +10,10 @@ from CommonServerPython import *  # noqa: E402 lgtm [py/polluting-import]
 from CommonServerUserPython import *  # noqa: E402 lgtm [py/polluting-import]
 
 # IMPORTS
-from urllib.parse import quote
 import hashlib
 import requests
 import json
-import base64
 import csv
-import sys
 import os
 from time import sleep, time
 from requests.auth import HTTPBasicAuth
@@ -29,6 +29,7 @@ from datetime import datetime
 from zipfile import ZipFile
 
 # Disable insecure warnings
+
 requests.packages.urllib3.disable_warnings()
 
 # CONSTANTS
@@ -179,6 +180,7 @@ def test_module(client):
         return 'ok'
     else:
         return 'Test failed because ......'
+
 
 def init_driver():
     demisto.debug(f'Creating chrome driver.')
@@ -374,7 +376,6 @@ def getScreenshotIBM(obj):
     if ss_mode:
         if not screenshot_IBM(obj):
             print(IBM + ": " + SS_FAILED)
-
 
 
 def IBM_exceptionHandle(resp):
@@ -751,13 +752,13 @@ def screenshot_IBM(obj):
     WebDriverWait(driver, timeout).until(element_present)
     # To print score
     # try:
-        # element_present = EC.presence_of_element_located((By.ID, 'report'))
-        # WebDriverWait(driver, timeout).until(element_present)
-        # riskLevel = str(driver.find_element_by_class_name('scorebackgroundfilter numtitle').text).split()[0]
-        # soup = BeautifulSoup(driver.page_source, 'html.parser')
-        # riskLevel = soup.find('div', attrs={'class': 'scorebackgroundfilter numtitle'}).text.split()[0]
-        # if riskLevel != "Unknown":
-        #     riskLevel = str(riskLevel) + " out of 10"
+    # element_present = EC.presence_of_element_located((By.ID, 'report'))
+    # WebDriverWait(driver, timeout).until(element_present)
+    # riskLevel = str(driver.find_element_by_class_name('scorebackgroundfilter numtitle').text).split()[0]
+    # soup = BeautifulSoup(driver.page_source, 'html.parser')
+    # riskLevel = soup.find('div', attrs={'class': 'scorebackgroundfilter numtitle'}).text.split()[0]
+    # if riskLevel != "Unknown":
+    #     riskLevel = str(riskLevel) + " out of 10"
     # except:
     #     riskLevel = NONE
     #     demisto.info(IBM + " - Screenshot")
@@ -837,6 +838,8 @@ def screenshot_virusTotal(obj):
         return saved
 
 # works for both ip or url
+
+
 def screenshot_ciscoTalos(iporurl):
     driver = init_driver()
     driver.get(CISCO_SS + quote(iporurl))
@@ -1016,6 +1019,59 @@ def filemode(a_file):
     return output
 
 
+def get_header(m):
+    if m == IP_MODE:
+        header = ['ip', 'Verdict', SAFE, BLOCK, VT, ABIP, FG, IBM, AUTH0]
+        if ss_mode:
+            header.append(CISCO)
+        return header
+
+    elif m == URL_MODE:
+        header = ['url', 'Verdict', SAFE, BLOCK, VT, IBM, GOOGLE, PHISH]
+        if ss_mode:
+            header.append(URLSCAN)
+            header.append(CISCO)
+        return header
+
+    elif m == HASH_MODE:
+        return ['hash', 'Verdict', "MD5", "SHA1", "SHA256", VT]
+
+    elif m == FILE_MODE:
+        return ['file', 'Verdict', VT]
+
+
+def get_reputation(data):
+    if mode == IP_MODE:
+        rep = [
+            data[VT],
+            data[ABIP],
+            data[FG],
+            data[IBM],
+            data[AUTH0]
+        ]
+        if ss_mode:
+            rep.append(data[CISCO])
+        return rep
+
+    elif mode == URL_MODE:
+        rep = [
+            data[VT],
+            data[IBM],
+            data[GOOGLE],
+            data[PHISH]
+        ]
+        if ss_mode:
+            rep.append(data[URLSCAN])
+            rep.append(data[CISCO])
+        return rep
+
+    elif mode == HASH_MODE:
+        return data[VT]
+
+    elif mode == FILE_MODE:
+        return data[VT]
+
+
 def checker():
     args = demisto.args()
     global ss_mode
@@ -1029,55 +1085,35 @@ def checker():
 
     if args.get('ip'):
         output = ipmode(args.get('ip'))
-        header = ['ip', 'Verdict', SAFE, BLOCK, VT, ABIP, FG, IBM, AUTH0]
-        rep = [
-            output[VT],
-            output[ABIP],
-            output[FG],
-            output[IBM],
-            output[AUTH0]
-        ]
-        if ss_mode:
-            header.append(CISCO)
-            rep.append(output[CISCO])
+        header = get_header(IP_MODE)
         markdown += '### Indicator: ' + args.get('ip') + '\n'
-        markdown += tableToMarkdown('Results', output, headers=['ip', 'Verdict', SAFE, BLOCK, VT])
+        markdown += tableToMarkdown('Results', output, headers=header)
         output_key = 'ip'
         ec.update({
             outputPaths['ip']: {
                 'Address': output['ip'],
-                'Reputation': rep,
+                'Reputation': get_reputation(output),
                 'Verdict': output["Verdict"]
             }
         })
     elif args.get('url'):
         output = urlmode(args.get('url'))
-        header = ['url', 'Verdict', SAFE, BLOCK, VT, IBM, GOOGLE, PHISH]
-        rep = [
-            output[VT],
-            output[IBM],
-            output[GOOGLE],
-            output[PHISH]
-        ]
-        if ss_mode:
-            header.append(URLSCAN)
-            header.append(CISCO)
-            rep.append(output[URLSCAN])
-            rep.append(output[CISCO])
+        header = get_header(URL_MODE)
         markdown += '### Indicator: ' + args.get('url') + '\n'
         markdown += tableToMarkdown('Results', output, headers=header)
         output_key = 'url'
         ec.update({
             outputPaths['url']: {
                 'URL': output['url'],
-                'Reputation': rep,
+                'Reputation': get_reputation(output),
                 'Verdict': output["Verdict"]
             }
         })
     elif args.get('hash'):
         output = hashmode(args.get('hash'))
+        header = get_header(HASH_MODE)
         markdown += '### Indicator: ' + args.get('hash') + '\n'
-        markdown += tableToMarkdown('Results', output, headers=['hash', 'Verdict', "MD5", "SHA1", "SHA256", VT])
+        markdown += tableToMarkdown('Results', output, headers=header)
         output_key = 'hash'
         ec.update({
             'Hash': output['hash'],
@@ -1086,28 +1122,29 @@ def checker():
                 output["SHA1"],
                 output["SHA256"]
             ],
-            'Reputation': output[VT],
+            'Reputation': get_reputation(output),
             'Verdict': output["Verdict"]
         })
     elif args.get('file'):
         output = filemode(args.get('file'))
+        header = get_header(FILE_MODE)
         markdown += '### Indicator: ' + args.get('file') + '\n'
-        markdown += tableToMarkdown('Results', output, headers=['file', 'Verdict', VT])
+        markdown += tableToMarkdown('Results', output, headers=header)
         output_key = 'file'
         ec.update({
             outputPaths['file']: {
                 'File': output['file'],
-                'Reputation': output[VT],
+                'Reputation': get_reputation(output),
                 'Verdict': output["Verdict"]
             }
         })
     else:
         markdown += help()
 
-    ## Return ZIP
-    res = fileResult(filename=mode+'.zip', data=open(mode+'.zip', "rb").read())
+    # Return ZIP
+    res = fileResult(filename=mode + '.zip', data=open(mode + '.zip', "rb").read())
     return_results(res)
-    ## return reputation
+    # return reputation
     results = CommandResults(
         readable_output=markdown,
         outputs_prefix='Checker',
@@ -1123,79 +1160,86 @@ def checker_batch():
     ss_mode = False
     if args.get('screenshot') == "true":
         ss_mode = True
+    if args.get('ips'):
+        arr = []
+        for ip in args.get('ips').split(","):
+            arr.append(ip.strip())
+        check_batch_process(arr, IP_MODE)
+    if args.get('urls'):
+        arr = []
+        for url in args.get('urls').split(","):
+            arr.append(url.strip())
+        check_batch_process(args.get('urls'), URL_MODE)
+    if args.get('hashes'):
+        arr = []
+        for h in args.get('hashes').split(","):
+            arr.append(h.strip())
+        check_batch_process(args.get('hashes'), HASH_MODE)
+    if args.get('entryID'):
+        entry_id = args.get('entryID')
+        res = demisto.getFilePath(entry_id)
+        if not res:
+            return_error("Entry {} not found".format(entry_id))
+        file_path = res['path']
+        file_name = res['name']
+        if file_name.lower().endswith('.txt') or file_name.lower().endswith('.csv'):
+            arr = []
+            with open(file_path) as f:
+                for line in f:
+                    arr.append(line.replace("\n", ""))
+            print(arr)
+            check_batch_process(arr, args.get('mode'))
+        else:
+            return_error("Not correct file format")
+
+
+def check_batch_process(indicators, mode):
     markdown = ""
     output_key = ""
     ec = {}  # type: dict
     result = []
     filename = ""
-
-    if args.get('ips'):
-        header = ['ip', 'Verdict', SAFE, BLOCK, VT, ABIP, FG, IBM, AUTH0]
+    if mode == IP_MODE:
         filename = "ip_{}.csv".format(datetime.now().strftime("%Y-%m-%d_%H%M"))
-        if ss_mode:
-            header.append(CISCO)
-        for address in args.get('ips'):
-            ip = address["Address"]
+        header = get_header(IP_MODE)
+        for ip in indicators:
             output = ipmode(ip)
             result.append(output)
-            rep = [
-                output[VT],
-                output[ABIP],
-                output[FG],
-                output[IBM],
-                output[AUTH0]
-            ]
-            if ss_mode:
-                rep.append(output[CISCO])
             output_key = 'ip'
             save_record_csv(output, filename, header)
             ec.update({
                 outputPaths['ip']: {
                     'Address': output['ip'],
-                    'Reputation': rep,
+                    'Reputation': get_reputation(output),
                     'Verdict': output["Verdict"]
                 }
             })
         markdown += '### IP Batch Reputation Check\n'
         markdown += tableToMarkdown('Results', result, headers=header)
 
-    elif args.get('urls'):
-        header = ['url', 'Verdict', SAFE, BLOCK, VT, IBM, GOOGLE, PHISH]
+    elif mode == URL_MODE:
         filename = "url_{}.csv".format(datetime.now().strftime("%Y-%m-%d_%H%M"))
-        if ss_mode:
-            header.append(URLSCAN)
-            header.append(CISCO)
+        header = get_header(URL_MODE)
         f = None
-        for link in args.get('urls'):
-            url = link["Name"]
+        for url in indicators:
             output = urlmode(url)
             result.append(output)
-            rep = [
-                output[VT],
-                output[IBM],
-                output[GOOGLE],
-                output[PHISH]
-            ]
-            if ss_mode:
-                rep.append(output[URLSCAN])
-                rep.append(output[CISCO])
             output_key = 'url'
             save_record_csv(output, filename, header)
             ec.update({
                 outputPaths['url']: {
                     'URL': output['url'],
-                    'Reputation': rep,
+                    'Reputation': get_reputation(output),
                     'Verdict': output["Verdict"]
                 }
             })
         markdown += '### URL Batch Reputation Check\n'
         markdown += tableToMarkdown('Results', result, headers=header)
 
-    elif args.get('hashes'):
-        header = ['hash', 'Verdict', "MD5", "SHA1", "SHA256", VT]
+    elif mode == HASH_MODE:
         filename = "hash_{}.csv".format(datetime.now().strftime("%Y-%m-%d_%H%M"))
-        for a_hash in args.get('hashes'):
-            h = next(iter(a_hash.values()))
+        header = get_header(HASH_MODE)
+        for h in indicators:
             output = hashmode(h)
             result.append(output)
             output_key = 'hash'
@@ -1207,13 +1251,12 @@ def checker_batch():
                     output["SHA1"],
                     output["SHA256"]
                 ],
-                'Reputation': output[VT],
+                'Reputation': get_reputation(output),
                 'Verdict': output["Verdict"]
             })
 
         markdown += '### Hash Batch Reputation Check\n'
         markdown += tableToMarkdown('Results', result, headers=header)
-
     else:
         markdown += help()
 
@@ -1222,13 +1265,13 @@ def checker_batch():
             'Output': result
         }
     })
-    ## Return ZIP
+    # Return ZIP
     with ZipFile(mode + '.zip', 'a') as zipObj:
         zipObj.write(filename)
     zip = fileResult(filename=mode + '.zip', data=open(mode + '.zip', "rb").read())
     zip['Type'] = entryTypes['file']
     return_results(zip)
-    ## return reputation
+    # return reputation
     results = CommandResults(
         readable_output=markdown,
         outputs_prefix='Checker',
@@ -1236,9 +1279,104 @@ def checker_batch():
         outputs=result
     )
     return_results(results)
-    ## return csv
+    # return csv
     res = fileResult(filename=filename, data=open(filename, "rb").read())
     return_results(res)
+
+
+def find_ip(s):
+    return re.findall(
+        r'(?:(?:1\d\d|2[0-5][0-5]|2[0-4]\d|0?[1-9]\d|0?0?\d)\.){3}(?:1\d\d|2[0-5][0-5]|2[0-4]\d|0?'
+        r'[1-9]\d|0?0?\d)', s)
+
+
+def find_url(s):
+    # Currently matches https or http or www.example.com or just domain like exmaple.com
+    # To remove not matching with any url without http / https, remove "|\b(?:[a-z]+\.)" portion
+    return re.findall(r"""(?:(?:https?|ftp):\/\/|\b(?:[a-z]+\.))(?:(?:[^\s()<>]+|\((?:[
+                        ^\s()<>]+|(?:\([^\s()<>]+\)))?\))+(?:\((?:[^\s()<>]+|(?:\(?:[^\s()<>]+\)))?\)|[^\s`!()\[\]{
+                        };:'".,<>?`]))?""", s)
+
+
+def find_hash(s):
+    return re.findall(r'(?i)(?<![a-z0-9])[a-f0-9]{32,}(?![a-z0-9])', s)
+
+
+def checker_extract():
+    args = demisto.args()
+    global ss_mode
+    ss_mode = False
+    if args.get('screenshot') == "true":
+        ss_mode = True
+
+    entry_id = args.get('entryID')
+    res = demisto.getFilePath(entry_id)
+    if not res:
+        return_error("Entry {} not found".format(entry_id))
+    file_path = res['path']
+    file_name = res['name']
+    ips = []
+    urls = []
+    hashes = []
+    if file_name.lower().endswith('.csv'):
+        # csv file
+        try:
+            with open(file_path, newline='', encoding="ISO-8859-1") as f:
+                r = csv.reader(f)
+                for row in r:
+                    newrow = ' '.join(row).strip()
+                    if not newrow:
+                        continue
+                    else:
+                        ips.extend(find_ip(newrow))
+                        urls.extend(find_url(newrow))
+                        hashes.extend(find_hash(newrow))
+
+        except Exception as e:
+            return_error(str(e))
+
+    elif file_name.lower().endswith('.txt'):
+        # txt file
+        try:
+            with open(file_path, newline='', encoding="ISO-8859-1") as f:
+                content = f.read()
+                ips.extend(find_ip(content))
+                urls.extend(find_url(content))
+                hashes.extend(find_hash(content))
+        except Exception as e:
+            return_error(str(e))
+
+    if ips:
+        ips = list(set(ips))
+        results = CommandResults(
+            readable_output=tableToMarkdown('### {} IP addresses found\n'.format(len(ips)), ips,
+                                            headers=['IP Address']),
+            outputs_prefix='Checker',
+            outputs_key_field='IP Address',
+            outputs=ips
+        )
+        return_results(results)
+        check_batch_process(ips, IP_MODE)
+    if urls:
+        urls = list(set(urls))
+        results = CommandResults(
+            readable_output=tableToMarkdown('### {} URLs found\n'.format(len(urls)), urls, headers=['URL']),
+            outputs_prefix='Checker',
+            outputs_key_field='URL',
+            outputs=urls
+        )
+        return_results(results)
+        check_batch_process(urls, URL_MODE)
+    if hashes:
+        hashes = list(set(hashes))
+        results = CommandResults(
+            readable_output=tableToMarkdown('### {} Hashes found\n'.format(len(hashes)), hashes, headers=['Hash']),
+            outputs_prefix='Checker',
+            outputs_key_field='Hash',
+            outputs=hashes
+        )
+        return_results(results)
+        check_batch_process(hashes, HASH_MODE)
 
 
 def help():
@@ -1250,57 +1388,6 @@ def help():
     markdown += '2. Attach csv file containing indicators in column 0\n'
     return markdown
 
-
-def say_hello_command(client, args):
-    """
-    Returns Hello {somename}
-
-    Args:
-        client (Client): HelloWorld client.
-        args (dict): all command arguments.
-
-    Returns:
-        Hello {someone}
-
-        readable_output (str): This will be presented in the war room - should be in markdown syntax - human readable
-        outputs (dict): Dictionary/JSON - saved in the incident context in order to be used as inputs
-                        for other tasks in the playbook
-        raw_response (dict): Used for debugging/troubleshooting purposes -
-                            will be shown only if the command executed with raw-response=true
-    """
-    name = args.get('name')
-
-    result = client.say_hello(name)
-
-    # readable output will be in markdown format - https://www.markdownguide.org/basic-syntax/
-    readable_output = f'## {result}'
-    outputs = {
-        'hello': result
-    }
-
-    return (
-        readable_output,
-        outputs,
-        result  # raw response - the original response
-    )
-
-
-def say_hello_over_http_command(client, args):
-    name = args.get('name')
-
-    result = client.say_hello_http_request(name)
-
-    # readable output will be in markdown format - https://www.markdownguide.org/basic-syntax/
-    readable_output = f'## {result}'
-    outputs = {
-        'hello': result
-    }
-
-    return (
-        readable_output,
-        outputs,
-        result  # raw response - the original response
-    )
 
 
 def fetch_incidents(client, last_run, first_fetch_time):
@@ -1383,15 +1470,12 @@ def main():
             demisto.setLastRun(next_run)
             demisto.incidents(incidents)
 
-        elif demisto.command() == 'hello':  # hello
-            return_outputs(*say_hello_command(client, demisto.args()))
-
-        # elif demisto.command() == 'check-file':
-        #     demisto.results(check_file())
         elif demisto.command() == 'checker':
             demisto.results(checker())
         elif demisto.command() == 'checker-batch':
             demisto.results(checker_batch())
+        elif demisto.command() == 'checker-extract':
+            demisto.results(checker_extract())
 
     # Log exceptions
     except Exception as e:
