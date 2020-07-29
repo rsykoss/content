@@ -1,7 +1,6 @@
 import ipaddress
 
 import dateparser
-from idna import unicode
 from selenium.webdriver.chrome.options import Options
 
 import demistomock as demisto
@@ -29,14 +28,12 @@ from datetime import datetime
 from zipfile import ZipFile
 
 # Disable insecure warnings
-
 requests.packages.urllib3.disable_warnings()
 
 # CONSTANTS
 DATE_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 CHROME_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.117 Safari/537.36'  # noqa
 # param constants
-# DRIVE = demisto.params().get('drive', '')
 VT_KEY = demisto.params().get('virustotal_apikey', '')
 ABIP_KEY = demisto.params().get('abusedipdb_apikey', '')
 IBM_KEY = demisto.params().get('ibm_key', '') + ":" + demisto.params().get('ibm_pass', '')
@@ -44,7 +41,6 @@ URLSCAN_KEY = demisto.params().get('urlscan_apikey', '')
 GOOGLE_KEY = demisto.params().get('googleSafeBrowsing_apikey', '')
 AUTH0_KEY = demisto.params().get('auth0_apikey', '')
 PHISH_KEY = demisto.params().get('phishtank_apikey', '')
-# PHISH_USER = demisto.params().get('phishtank_user', '')
 FG_KEY = demisto.params().get('fraudguard_apikey', '')
 
 # String constants
@@ -70,8 +66,9 @@ VT_FILE = 'https://www.virustotal.com/api/v3/files'
 VT_FILE_BIG = 'https://www.virustotal.com/api/v3/files/upload_url'
 VT_IP = 'https://www.virustotal.com/api/v3/ip_addresses/{}'
 VT_SS = 'https://www.virustotal.com/gui/{identifier}/{target}/detection'
+
 # [AbuseIPDB] api / links
-ABIP = 'AbusedIP'
+ABIP = 'AbuseIP'
 ABIP_IP = 'https://api.abuseipdb.com/api/v2/check'
 ABIP_SS = 'https://www.abuseipdb.com/check/{}'
 
@@ -115,7 +112,6 @@ PHISH_SS = 'https://www.phishtank.com/'
 CISCO = 'CiscoTalos'
 CISCO_SS = 'https://talosintelligence.com/reputation_center/lookup?search='
 
-
 # Initialisation of modes
 mode = NONE
 ss_mode = False
@@ -124,7 +120,7 @@ vt_headers = {'Accept': 'application/json'}
 ibm_headers = {"Content-Type": "application/json"}
 
 timeout = 20
-imageName = ""
+imageName = "checker"
 
 
 class Client(BaseClient):
@@ -132,19 +128,6 @@ class Client(BaseClient):
     Client will implement the service API, and should not contain any Demisto logic.
     Should only do requests and return data.
     """
-
-    def say_hello(self, name):
-        return f'Hello {name}'
-
-    def say_hello_http_request(self, name):
-        """
-        initiates a http request to a test url
-        """
-        data = self._http_request(
-            method='GET',
-            url_suffix='/hello/' + name
-        )
-        return data.get('result')
 
     def list_incidents(self):
         """
@@ -162,24 +145,6 @@ class Client(BaseClient):
                 'created_time': datetime.utcnow().strftime(DATE_FORMAT)
             }
         ]
-
-
-def test_module(client):
-    """
-    Returning 'ok' indicates that the integration works like it is supposed to. Connection to the service is successful.
-
-    Args:
-        client: HelloWorld client
-
-    Returns:
-        'ok' if test passed, anything else will fail the test.
-    """
-
-    result = client.say_hello('DBot')
-    if 'Hello DBot' == result:
-        return 'ok'
-    else:
-        return 'Test failed because ......'
 
 
 def init_driver():
@@ -222,14 +187,22 @@ def vt_result(result):
         suspicious = int(result.json()['data']['attributes']['last_analysis_stats']['suspicious'])
         undetected = int(result.json()['data']['attributes']['last_analysis_stats']['undetected'])
         rate = str(malicious) + " // " + str(malicious + harmless + suspicious + undetected)
+        if malicious > 0:
+            dbot = Common.DBotScore.BAD
+        elif suspicious > 0:
+            dbot = Common.DBotScore.SUSPICIOUS
+        else:
+            dbot = Common.DBotScore.GOOD
     except (KeyError, TypeError) as e:
         demisto.info(VT + " - vt_result() - " + str(e))
         rate = NONE
+        dbot = Common.DBotScore.NONE
     except Exception as e:
         demisto.info(VT + " - vt_result() - " + str(e))
         rate = NONE
+        dbot = Common.DBotScore.NONE
     finally:
-        return rate
+        return rate, dbot
 
 
 def vt_exception(resp):
@@ -261,10 +234,10 @@ def virusTotalIP(ip):
         demisto.info(VT + " - " + str(e))
     else:
         # available status: harmless, malicious, suspicious, timeout, undetected
-        vt = vt_result(resp)
+        vt, dbot = vt_result(resp)
     finally:
-        print(VT + ": " + vt)
-        return vt
+        # print(VT + ": " + vt)
+        return vt, dbot
 
 
 def virusTotalURL(url):
@@ -290,19 +263,19 @@ def virusTotalURL(url):
         vt_exception(resp)
     except Exception as e:
         vt = NONE
+        dbot = Common.DBotScore.NONE
         demisto.info(VT + " - " + str(e))
     else:
         # available status: harmless, malicious, suspicious, timeout, undetected
-        vt = vt_result(resp)
+        vt, dbot = vt_result(resp)
     finally:
         vt_screenshot(url)
-        print(VT + ": " + vt)
+        # print(VT + ": " + vt)
         demisto.info(VT + " - " + vt)
-        return vt
+        return vt, dbot
+
 
 # Get MD5 hash
-
-
 def getmd5(fname):
     hash_md5 = hashlib.md5()
     with open(fname, "rb") as f:
@@ -318,26 +291,27 @@ def virusTotalFile(file):
     file_size = os.path.getsize(file)
     try:
         if file_size <= 33554432:
-            resp = requests.post(VT_FILE, headers=vt_headers, files=data)
+            resp = requests.post(VT_FILE, headers={'Accept': 'application/json', 'x-apikey': VT_KEY}, files=data)
         else:  # bigger than 32 mb - there may be performance issue as a file gets too big
-            resp = requests.get(VT_FILE_BIG, headers=vt_headers)
+            resp = requests.get(VT_FILE_BIG, headers={'Accept': 'application/json', 'x-apikey': VT_KEY})
             vt_exception(resp)
             upload_url = resp.json()['data']
-            resp = requests.post(upload_url, headers=vt_headers, files=data)
+            resp = requests.post(upload_url, headers={'Accept': 'application/json', 'x-apikey': VT_KEY}, files=data)
         vt_exception(resp)
     except Exception as e:
         vt = NONE
+        dbot = Common.DBotScore.NONE
         demisto.info(VT + " - " + str(e))
     else:
-        vt = vt_result(resp)
+        vt, dbot = vt_result(resp)
         filehash = str(getmd5(file))
         # retrieve analysis
-        vt = virusTotalHash([filehash, file])
-        vt = [vt[4], filehash]
+        vt, dbot = virusTotalHash([filehash, file])
+        # vt = [vt[4], filehash]
     finally:
-        print(VT + ": " + str(vt))
+        # print(VT + ": " + str(vt))
         demisto.info(VT + " - " + str(vt))
-        return vt
+        return vt, dbot
 
 
 def virusTotalHash(a_hash):
@@ -349,19 +323,21 @@ def virusTotalHash(a_hash):
         vt_exception(resp)
     except Exception as e:
         vt = NONE
+        dbot = Common.DBotScore.NONE
+        print(str(e))
         demisto.info(VT + " - " + str(e))
     else:
         # Status: confirmed-timeout, failure, harmless, malicious, suspicious, timeout, type-unsupported, undetected
-        vt = vt_result(resp)
+        vt, dbot = vt_result(resp)
     finally:
-        print(VT + ": " + str(vt))
+        # print(VT + ": " + str(vt))
         demisto.info(VT + " - " + vt)
 
     try:
         md5 = resp.json()['data']['attributes']['md5']
         sha1 = resp.json()['data']['attributes']['sha1']
         sha256 = resp.json()['data']['attributes']['sha256']
-        print("md5: " + md5 + ", SHA1: " + sha1 + ", SHA256: " + sha256)
+        # print("md5: " + md5 + ", SHA1: " + sha1 + ", SHA256: " + sha256)
     except (KeyError, TypeError) as e:
         demisto.info(VT + " - virusTotalHash() - " + str(e))
         md5 = NONE
@@ -369,7 +345,7 @@ def virusTotalHash(a_hash):
         sha1 = NONE
     finally:
         data = [a_hash, md5, sha1, sha256, vt]
-        return data
+        return data, dbot
 
 
 def getScreenshotIBM(obj):
@@ -399,18 +375,25 @@ def ibm_url(url):
     if str(resp.status_code).startswith('2'):
         try:
             rate = str(resp.json()['result']['score']) + " // 10"
+            if rate.startswith("1 "):
+                dbot = Common.DBotScore.GOOD
+            else:
+                dbot = Common.DBotScore.BAD
         except:
             rate = UNKNOWN
+            dbot = Common.DBotScore.NONE
     elif resp.status_code == 404:
         rate = UNKNOWN
+        dbot = Common.DBotScore.NONE
         demisto.info(IBM + " - Not found in database")
     else:
+        dbot = Common.DBotScore.NONE
         rate = NONE
         IBM_exceptionHandle(resp)
 
-    print(IBM + ": " + rate)
+    # print(IBM + ": " + rate)
     demisto.info(IBM + " - " + rate)
-    return rate
+    return rate, dbot
 
 
 # call to this function when ip mode on
@@ -424,22 +407,28 @@ def ibm_IP(ip):
     if str(resp.status_code).startswith('2'):
         try:
             rate = str(resp.json()['history'][-1]['score']) + " // 10"
+            if rate.startswith("1 "):
+                dbot = Common.DBotScore.GOOD
+            else:
+                dbot = Common.DBotScore.BAD
         except:
             rate = UNKNOWN
+            dbot = Common.DBotScore.NONE
     elif resp.status_code == 404:
         rate = UNKNOWN
+        dbot = Common.DBotScore.NONE
         demisto.info(IBM + " - Not found in database")
     else:
         rate = NONE
+        dbot = Common.DBotScore.NONE
         IBM_exceptionHandle(resp)
 
-    print(IBM + ": " + rate)
+    # print(IBM + ": " + rate)
     demisto.info(IBM + " - " + rate)
-    return rate
+    return rate, dbot
+
 
 # only works for url, no ip support
-
-
 def abusedIP(ip):
     if ss_mode:
         if not screenshot_abusedIP(ip):
@@ -452,8 +441,13 @@ def abusedIP(ip):
     try:
         resp = json.loads(requests.get(ABIP_IP, headers=headers, params=params).text)
         rate = str(resp['data']["abuseConfidenceScore"]) + " // 100"
+        if rate.startswith("0"):
+            dbot = Common.DBotScore.GOOD
+        else:
+            dbot = Common.DBotScore.BAD
     except:
         rate = NONE
+        dbot = Common.DBotScore.NONE
         error = resp['errors']
         if error[0]['status'] == 429 or error[0]['status'] == 401:
             print(ABIP + ": " + error[0]['detail'])
@@ -461,9 +455,9 @@ def abusedIP(ip):
             print(ABIP + EX_SERVER.format(ABIP))
         demisto.info(ABIP + " - virusTotalHash() - " + str(error[0]['detail']))
     finally:
-        print(ABIP + ": " + rate)
+        # print(ABIP + ": " + rate)
         demisto.info(ABIP + " - " + rate)
-        return rate
+        return rate, dbot
 
 
 def fraudGuard(ip):
@@ -476,16 +470,27 @@ def fraudGuard(ip):
         password = FG_KEY.strip().split(':')[1]
     except IndexError:
         rate = NONE
+        dbot = Common.DBotScore.NONE
         demisto.info(FG + " - " + "No API keys provided")
         print(FG + ": API keys not provided in config.txt")
         print(FG + ": " + rate)
         demisto.info(FG + " - " + rate)
-        return rate
+        return rate, dbot
     resp = requests.get(FG_IP.format(ip), verify=True, auth=HTTPBasicAuth(username, password))
     try:
         rate = json.loads(resp.text)['risk_level'] + " // 5"
+        # 1: No Risk
+        # 2: Spam/ website abuse
+        # 3: Open public proxy
+        # 4: Tor Node
+        # 5: Honeypot, malware, botnet, ddos
+        if rate.startswith("1"):
+            dbot = Common.DBotScore.GOOD
+        else:
+            dbot = Common.DBotScore.BAD
     except:
         rate = NONE
+        dbot = Common.DBotScore.NONE
         demisto.info(FG + " - " + str(resp.text))
         if resp.status_code == 401:
             print(FG + ": Invalid key - " + FG_KEY + " - Check credentials")
@@ -494,9 +499,9 @@ def fraudGuard(ip):
         elif resp.status_code == 429:
             print(FG + ": API limit reached for FG key")
     finally:
-        print(FG + ": " + rate)
+        # print(FG + ": " + rate)
         demisto.info(FG + " - " + rate)
-        return rate
+        return rate, dbot
 
 
 def auth0(ip):
@@ -510,13 +515,18 @@ def auth0(ip):
     try:
         resp = requests.get(AUTH0_IP.format(ip), headers=headers).json()
         score = str(resp['fullip']['score']).strip()
+        if score.startswith("0"):
+            dbot = Common.DBotScore.GOOD
+        else:
+            dbot = Common.DBotScore.BAD
     except:
         score = NONE
+        dbot = Common.DBotScore.NONE
         demisto.info(AUTH0 + " - " + str(resp))
     finally:
-        print(AUTH0 + ": " + score)
+        # print(AUTH0 + ": " + score)
         demisto.info(AUTH0 + " - " + score)
-        return score
+        return score, dbot
 
 
 def googleSafe(url):
@@ -535,18 +545,21 @@ def googleSafe(url):
     if resp.status_code == 200:
         if "matches" in resp.json().keys():
             gsb = resp.json()["matches"][0]["threatType"]
+            dbot = Common.DBotScore.BAD
         else:
             gsb = "Safe"
+            dbot = Common.DBotScore.GOOD
     else:
         gsb = NONE
+        dbot = Common.DBotScore.NONE
         if resp.status_code == 429:
             print(GOOGLE + ": Requests Exceeded!")
         elif str(resp.status_code).startswith('5'):
             print(GOOGLE + EX_SERVER.format(GOOGLE))
         demisto.info(GOOGLE + " - " + str(resp.json()))
-    print(GOOGLE + ": " + gsb)
+    # print(GOOGLE + ": " + gsb)
     demisto.info(GOOGLE + " - " + gsb)
-    return gsb
+    return gsb, dbot
 
 
 def phishtank(url):
@@ -569,20 +582,25 @@ def phishtank(url):
         if resp.json()['results']['in_database']:  # if it exists in database
             if not resp.json()['results']['verified']:  # if pending verification return malicious
                 result = "Questionable"
+                dbot = Common.DBotScore.SUSPICIOUS
             elif resp.json()['results']['verified'] and resp.json()['results']['valid']:  # if phish return malicious
                 result = "Phish"
+                dbot = Common.DBotScore.BAD
             else:  # if verified as not a phish
                 result = "Not a Phish"
+                dbot = Common.DBotScore.GOOD
         else:  # if result not found in database
             result = UNKNOWN
+            dbot = Common.DBotScore.NONE
     else:
         result = NONE
+        dbot = Common.DBotScore.NONE
         demisto.info(PHISH + " - " + str(resp.json()))
         if resp.status_code == 509:
             print(PHISH + ": Requests Exceeded! Please wait at most 5 minutes to reset the number of requests.")
-    print(PHISH + ": " + str(result))
+    # print(PHISH + ": " + str(result))
     demisto.info(PHISH + " - " + str(result))
-    return result
+    return result, dbot
 
 
 def urlscan(url):
@@ -610,8 +628,13 @@ def urlscan(url):
             time_elapsed = time() - begin
         try:
             score = str(result.json()['verdicts']['overall']['score']) + " out of 100"
+            if score.startswith("0 "):
+                dbot = Common.DBotScore.GOOD
+            else:
+                dbot = Common.DBotScore.BAD
         except:
             score = NONE
+            dbot = Common.DBotScore.NONE
             logging.exception(URLSCAN + " - " + str(result.json()))
         finally:
             with open(imageName.format(""), "wb+") as img_sc:
@@ -628,9 +651,9 @@ def urlscan(url):
             if not screenshot_urlscan(uuid):
                 print(URLSCAN + ": " + SS_FAILED)
     finally:
-        print(URLSCAN + ": " + score)
+        # print(URLSCAN + ": " + score)
         logging.info(URLSCAN + " - " + score)
-        return [str(score), uuid]
+        return [str(score), uuid], dbot
 
 
 # Screenshot mode
@@ -734,7 +757,7 @@ def screenshot_abusedIP(ip):
 
 def screenshot_IBM(obj):
     driver = init_driver()
-    # driver.implicitly_wait(5)
+    driver.implicitly_wait(5)
     driver.get(IBM_SS.format(quote(obj)))
     element_present = EC.presence_of_element_located((By.CLASS_NAME, 'modal-dialog'))
     WebDriverWait(driver, timeout).until(element_present)
@@ -837,9 +860,8 @@ def screenshot_virusTotal(obj):
         driver.quit()
         return saved
 
+
 # works for both ip or url
-
-
 def screenshot_ciscoTalos(iporurl):
     driver = init_driver()
     driver.get(CISCO_SS + quote(iporurl))
@@ -847,13 +869,21 @@ def screenshot_ciscoTalos(iporurl):
         element_present = EC.presence_of_element_located((By.CLASS_NAME, 'new-legacy-label'))
         WebDriverWait(driver, timeout).until(element_present)
         web_reputation = str(driver.find_element_by_class_name('new-legacy-label').text).split()[0]
-        image = driver.get_screenshot_as_png()
-        save_image(image, CISCO)
-        # print(CISCO + ": " + SS_SAVED)
-        demisto.info(CISCO + " - Screenshot saved at " + imageName.format(CISCO))
+        if web_reputation == "Neutral" or web_reputation == "Favorable" or web_reputation == "Trusted":
+            dbot = Common.DBotScore.GOOD
+        elif web_reputation == "Unknown":
+            dbot = Common.DBotScore.NONE
+        else:
+            dbot = Common.DBotScore.BAD
+        if ss_mode:
+            image = driver.get_screenshot_as_png()
+            save_image(image, CISCO)
+            # print(CISCO + ": " + SS_SAVED)
+            demisto.info(CISCO + " - Screenshot saved at " + imageName.format(CISCO))
         # results: Trusted, Favorable, Neutral, Questionable, Untrusted, Unknown
     except WebDriverException as e:
         web_reputation = NONE
+        dbot = Common.DBotScore.NONE
         demisto.info(CISCO + " - Screenshot - " + str(e))
         print(CISCO + ": " + SS_FAILED)
         try:
@@ -866,9 +896,9 @@ def screenshot_ciscoTalos(iporurl):
             pass
     finally:
         driver.quit()
-        print(CISCO + ": " + web_reputation)
+        # print(CISCO + ": " + web_reputation)
         demisto.info(CISCO_SS + " - " + web_reputation)
-        return web_reputation
+        return web_reputation, dbot
 
 
 def save_image(image, name):
@@ -899,24 +929,23 @@ def makeFileName(obj):
     return f'' + name + "_{}.png"
 
 
-def addScore(name, safescore, score, data, safe, block):
+def addScore(name, dbot, score, data, safe, block):
     data[name] = score
-    if score != NONE:
-        if score.startswith(safescore) or score == UNKNOWN:
-            safe.append(name)
-        else:
-            block.append(name)
+    if dbot == Common.DBotScore.NONE or dbot == Common.DBotScore.GOOD:
+        safe.append(name)
+    else:
+        block.append(name)
     return data, safe, block
 
 
-def addScore_cisco(name, score, data, safe, block):
-    data[name] = score
-    if score != NONE:
-        if score == "Neutral" or score == "Favorable" or score == "Trusted" or score == "Unknown":
-            safe.append(name)
-        else:
-            block.append(name)
-    return data, safe, block
+# def addScore_cisco(name, score, data, safe, block):
+#     data[name] = score
+#     if score != NONE:
+#         if score == "Neutral" or score == "Favorable" or score == "Trusted" or score == "Unknown":
+#             safe.append(name)
+#         else:
+#             block.append(name)
+#     return data, safe, block
 
 
 def get_verdict(output):
@@ -935,19 +964,25 @@ def ipmode(ip):
         imageName = makeFileName(ip)
     safe = []
     block = []
-    vt = virusTotalIP(ip)
-    output, safe, block = addScore(VT, "0", vt, output, safe, block)
-    abip = abusedIP(ip)
-    output, safe, block = addScore(ABIP, "0", abip, output, safe, block)
-    fg = fraudGuard(ip)
-    output, safe, block = addScore(FG, "1 ", fg, output, safe, block)
-    ibm_rec = ibm_IP(ip)
-    output, safe, block = addScore(IBM, "1 ", ibm_rec, output, safe, block)
-    ath0 = auth0(ip)
-    output, safe, block = addScore(AUTH0, "0", ath0, output, safe, block)
+    vt, dbot = virusTotalIP(ip)
+    output_ip(ip, VT, vt, dbot)
+    output, safe, block = addScore(VT, dbot, vt, output, safe, block)
+    abip, dbot = abusedIP(ip)
+    output_ip(ip, ABIP, abip, dbot)
+    output, safe, block = addScore(ABIP, dbot, abip, output, safe, block)
+    fg, dbot = fraudGuard(ip)
+    output_ip(ip, FG, fg, dbot)
+    output, safe, block = addScore(FG, dbot, fg, output, safe, block)
+    ibm_rec, dbot = ibm_IP(ip)
+    output_ip(ip, IBM, ibm_rec, dbot)
+    output, safe, block = addScore(IBM, dbot, ibm_rec, output, safe, block)
+    ath0, dbot = auth0(ip)
+    output_ip(ip, AUTH0, ath0, dbot)
+    output, safe, block = addScore(AUTH0, dbot, ath0, output, safe, block)
     if ss_mode:
-        ct = screenshot_ciscoTalos(ip)
-        output, safe, block = addScore_cisco(CISCO, ct, output, safe, block)
+        ct, dbot = screenshot_ciscoTalos(ip)
+        output_ip(ip, CISCO, ct, dbot)
+        output, safe, block = addScore(CISCO, dbot, ct, output, safe, block)
     output[SAFE] = safe
     output[BLOCK] = block
     return get_verdict(output)
@@ -961,21 +996,27 @@ def urlmode(url):
         imageName = makeFileName(url)
     safe = []
     block = []
-    vt = virusTotalURL(url)
-    output, safe, block = addScore(VT, "0", vt, output, safe, block)
-    ibm_rec = ibm_url(url)
-    output, safe, block = addScore(IBM, "1 ", ibm_rec, output, safe, block)
-    gsb = googleSafe(url)
-    output, safe, block = addScore(GOOGLE, "Safe", gsb, output, safe, block)
-    pt = phishtank(url)
-    output, safe, block = addScore(PHISH, "Not ", pt, output, safe, block)
+    vt, dbot = virusTotalURL(url)
+    output_url(url, VT, vt, dbot)
+    output, safe, block = addScore(VT, dbot, vt, output, safe, block)
+    ibm_rec, dbot = ibm_url(url)
+    output_url(url, IBM, ibm_rec, dbot)
+    output, safe, block = addScore(IBM, dbot, ibm_rec, output, safe, block)
+    gsb, dbot = googleSafe(url)
+    output_url(url, GOOGLE, gsb, dbot)
+    output, safe, block = addScore(GOOGLE, dbot, gsb, output, safe, block)
+    pt, dbot = phishtank(url)
+    output_url(url, PHISH, pt, dbot)
+    output, safe, block = addScore(PHISH, dbot, pt, output, safe, block)
     if ss_mode:
-        usc = urlscan(url)
+        usc, dbot = urlscan(url)
         uscuuid = usc[1]
         usc = usc[0]
-        output, safe, block = addScore(URLSCAN, "0 ", usc, output, safe, block)
-        ct = screenshot_ciscoTalos(url)
-        output, safe, block = addScore_cisco(CISCO, ct, output, safe, block)
+        output_url(url, URLSCAN, usc, dbot)
+        output, safe, block = addScore(URLSCAN, dbot, usc, output, safe, block)
+        ct, dbot = screenshot_ciscoTalos(url)
+        output_url(url, CISCO, ct, dbot)
+        output, safe, block = addScore(CISCO, dbot, ct, output, safe, block)
     output[SAFE] = safe
     output[BLOCK] = block
     return get_verdict(output)
@@ -987,32 +1028,38 @@ def hashmode(a_hash):
     output = {"hash": a_hash, "Verdict": NONE}
     if ss_mode:
         imageName = makeFileName(a_hash)
-    vt = virusTotalHash(a_hash)
+    vt, dbot = virusTotalHash(a_hash)
+    output_hash(a_hash, VT, vt, dbot)
     output["MD5"] = vt[1]
     output["SHA1"] = vt[2]
     output["SHA256"] = vt[3]
     output[VT] = vt[4]
     if vt[4].startswith("0"):
         output["Verdict"] = SAFE
+        output[SAFE] = [VT]
     elif vt[4] == NONE:
         pass
     else:
+        output[BLOCK] = [VT]
         output["Verdict"] = BLOCK
     return output
 
 
-def filemode(a_file):
+def filemode(a_file, name):
     global imageName, mode
     mode = FILE_MODE
-    output = {"file": a_file, "Verdict": NONE}
+    output = {"file": name, "Verdict": NONE}
     if ss_mode:
-        imageName = makeFileName(a_file)
-    vt = virusTotalFile(a_file)
-    output[VT] = vt[0]
-    output["File Hash"] = vt[1]
-    if vt[0].startswith("0"):
+        imageName = makeFileName(name)
+    vt, dbot = virusTotalFile(a_file)
+    output_hash(name, VT, vt, dbot)
+    output[VT] = vt[4]
+    output["MD5"] = vt[1]
+    output["SHA1"] = vt[2]
+    output["SHA256"] = vt[3]
+    if vt[4].startswith("0"):
         output["Verdict"] = SAFE
-    elif vt[0] == NONE:
+    elif vt[4] == NONE:
         pass
     else:
         output["Verdict"] = BLOCK
@@ -1034,10 +1081,10 @@ def get_header(m):
         return header
 
     elif m == HASH_MODE:
-        return ['hash', 'Verdict', "MD5", "SHA1", "SHA256", VT]
+        return ['hash', 'Verdict', "MD5", "SHA1", "SHA256", VT, SAFE, BLOCK]
 
     elif m == FILE_MODE:
-        return ['file', 'Verdict', VT]
+        return ['file', 'Verdict', "MD5", "SHA1", "SHA256", VT]
 
 
 def get_reputation(data):
@@ -1081,69 +1128,49 @@ def checker():
     output = NONE
     markdown = ""
     output_key = NONE
-    ec = {}  # type: dict
 
     if args.get('ip'):
         output = ipmode(args.get('ip'))
         header = get_header(IP_MODE)
         markdown += '### Indicator: ' + args.get('ip') + '\n'
         markdown += tableToMarkdown('Results', output, headers=header)
-        output_key = 'ip'
-        ec.update({
-            outputPaths['ip']: {
-                'Address': output['ip'],
-                'Reputation': get_reputation(output),
-                'Verdict': output["Verdict"]
-            }
-        })
+        output_key = 'IP'
+
     elif args.get('url'):
         output = urlmode(args.get('url'))
         header = get_header(URL_MODE)
         markdown += '### Indicator: ' + args.get('url') + '\n'
         markdown += tableToMarkdown('Results', output, headers=header)
-        output_key = 'url'
-        ec.update({
-            outputPaths['url']: {
-                'URL': output['url'],
-                'Reputation': get_reputation(output),
-                'Verdict': output["Verdict"]
-            }
-        })
+        output_key = 'URL'
+
     elif args.get('hash'):
         output = hashmode(args.get('hash'))
         header = get_header(HASH_MODE)
         markdown += '### Indicator: ' + args.get('hash') + '\n'
         markdown += tableToMarkdown('Results', output, headers=header)
-        output_key = 'hash'
-        ec.update({
-            'Hash': output['hash'],
-            'Equivalent': [
-                output["MD5"],
-                output["SHA1"],
-                output["SHA256"]
-            ],
-            'Reputation': get_reputation(output),
-            'Verdict': output["Verdict"]
-        })
+        output_key = 'Hash'
+
     elif args.get('file'):
-        output = filemode(args.get('file'))
+        entry_id = args.get('file')
+        res = demisto.getFilePath(entry_id)
+        if not res:
+            return_error("Entry {} not found".format(entry_id))
+        file_path = res['path']
+        file_name = res['name']
+        if file_name == "file.zip":
+            return
+        output = filemode(file_path, file_name)
         header = get_header(FILE_MODE)
         markdown += '### Indicator: ' + args.get('file') + '\n'
         markdown += tableToMarkdown('Results', output, headers=header)
-        output_key = 'file'
-        ec.update({
-            outputPaths['file']: {
-                'File': output['file'],
-                'Reputation': get_reputation(output),
-                'Verdict': output["Verdict"]
-            }
-        })
+        output_key = 'File'
+
     else:
         markdown += help()
-
-    # Return ZIP
-    res = fileResult(filename=mode + '.zip', data=open(mode + '.zip', "rb").read())
-    return_results(res)
+    if ss_mode:
+        # Return ZIP
+        res = fileResult(filename=mode + '.zip', data=open(mode + '.zip', "rb").read())
+        return_results(res)
     # return reputation
     results = CommandResults(
         readable_output=markdown,
@@ -1177,26 +1204,14 @@ def checker_batch():
         check_batch_process(args.get('hashes'), HASH_MODE)
     if args.get('entryID'):
         entry_id = args.get('entryID')
-        res = demisto.getFilePath(entry_id)
-        if not res:
-            return_error("Entry {} not found".format(entry_id))
-        file_path = res['path']
-        file_name = res['name']
-        if file_name.lower().endswith('.txt') or file_name.lower().endswith('.csv'):
-            arr = []
-            with open(file_path) as f:
-                for line in f:
-                    arr.append(line.replace("\n", ""))
-            print(arr)
+        arr = extract_single(entry_id)
+        if arr:
             check_batch_process(arr, args.get('mode'))
-        else:
-            return_error("Not correct file format")
 
 
 def check_batch_process(indicators, mode):
     markdown = ""
     output_key = ""
-    ec = {}  # type: dict
     result = []
     filename = ""
     if mode == IP_MODE:
@@ -1207,13 +1222,6 @@ def check_batch_process(indicators, mode):
             result.append(output)
             output_key = 'ip'
             save_record_csv(output, filename, header)
-            ec.update({
-                outputPaths['ip']: {
-                    'Address': output['ip'],
-                    'Reputation': get_reputation(output),
-                    'Verdict': output["Verdict"]
-                }
-            })
         markdown += '### IP Batch Reputation Check\n'
         markdown += tableToMarkdown('Results', result, headers=header)
 
@@ -1226,13 +1234,6 @@ def check_batch_process(indicators, mode):
             result.append(output)
             output_key = 'url'
             save_record_csv(output, filename, header)
-            ec.update({
-                outputPaths['url']: {
-                    'URL': output['url'],
-                    'Reputation': get_reputation(output),
-                    'Verdict': output["Verdict"]
-                }
-            })
         markdown += '### URL Batch Reputation Check\n'
         markdown += tableToMarkdown('Results', result, headers=header)
 
@@ -1244,33 +1245,22 @@ def check_batch_process(indicators, mode):
             result.append(output)
             output_key = 'hash'
             save_record_csv(output, filename, header)
-            ec.update({
-                'Hash': output['hash'],
-                'Equivalent': [
-                    output["MD5"],
-                    output["SHA1"],
-                    output["SHA256"]
-                ],
-                'Reputation': get_reputation(output),
-                'Verdict': output["Verdict"]
-            })
-
         markdown += '### Hash Batch Reputation Check\n'
         markdown += tableToMarkdown('Results', result, headers=header)
     else:
         markdown += help()
 
-    ec.update({
-        outputPaths['file']: {
-            'Output': result
-        }
-    })
-    # Return ZIP
-    with ZipFile(mode + '.zip', 'a') as zipObj:
-        zipObj.write(filename)
-    zip = fileResult(filename=mode + '.zip', data=open(mode + '.zip', "rb").read())
-    zip['Type'] = entryTypes['file']
-    return_results(zip)
+    if ss_mode:
+        # Return ZIP
+        with ZipFile(mode + '.zip', 'a') as zipObj:
+            zipObj.write(filename)
+        zip = fileResult(filename=mode + '.zip', data=open(mode + '.zip', "rb").read())
+        zip['Type'] = entryTypes['file']
+        return_results(zip)
+
+    # return csv
+    res = fileResult(filename=filename, data=open(filename, "rb").read())
+    return_results(res)
     # return reputation
     results = CommandResults(
         readable_output=markdown,
@@ -1279,9 +1269,6 @@ def check_batch_process(indicators, mode):
         outputs=result
     )
     return_results(results)
-    # return csv
-    res = fileResult(filename=filename, data=open(filename, "rb").read())
-    return_results(res)
 
 
 def find_ip(s):
@@ -1310,6 +1297,27 @@ def checker_extract():
         ss_mode = True
 
     entry_id = args.get('entryID')
+    ips, urls, hashes = extract_all(entry_id)
+
+    if ips:
+        check_batch_process(ips, IP_MODE)
+    if urls:
+        check_batch_process(urls, URL_MODE)
+    if hashes:
+        check_batch_process(hashes, HASH_MODE)
+
+
+def help():
+    markdown = '### Help text\n'
+    markdown += 'For single IOC:\n'
+    markdown += 'Command: !Checker ip=x.x.x.x\n'
+    markdown += 'For batch IOC:\n'
+    markdown += '1. Create new incident with playbook Checker_Batch_IP or URL or Hash\n'
+    markdown += '2. Attach csv file containing indicators in column 0\n'
+    return markdown
+
+
+def extract_all(entry_id):
     res = demisto.getFilePath(entry_id)
     if not res:
         return_error("Entry {} not found".format(entry_id))
@@ -1345,7 +1353,6 @@ def checker_extract():
                 hashes.extend(find_hash(content))
         except Exception as e:
             return_error(str(e))
-
     if ips:
         ips = list(set(ips))
         results = CommandResults(
@@ -1356,7 +1363,6 @@ def checker_extract():
             outputs=ips
         )
         return_results(results)
-        check_batch_process(ips, IP_MODE)
     if urls:
         urls = list(set(urls))
         results = CommandResults(
@@ -1366,7 +1372,6 @@ def checker_extract():
             outputs=urls
         )
         return_results(results)
-        check_batch_process(urls, URL_MODE)
     if hashes:
         hashes = list(set(hashes))
         results = CommandResults(
@@ -1376,18 +1381,553 @@ def checker_extract():
             outputs=hashes
         )
         return_results(results)
-        check_batch_process(hashes, HASH_MODE)
+
+    return ips, urls, hashes
 
 
-def help():
-    markdown = '### Help text\n'
-    markdown += 'For single IOC:\n'
-    markdown += 'Command: !Checker ip=x.x.x.x\n'
-    markdown += 'For batch IOC:\n'
-    markdown += '1. Create new incident with playbook Checker_Batch_IP or URL or Hash\n'
-    markdown += '2. Attach csv file containing indicators in column 0\n'
-    return markdown
+def checkerindi_extract_all():
+    args = demisto.args()
+    entry_id = args.get('entryID')
+    ips, urls, hashes = extract_all(entry_id)
+    context = {}  # type: dict
+    if ips:
+        for ip in ips:
+            context["IP"].append({"Address": ip})
 
+    if urls:
+        for url in urls:
+            context["URL"].append({"Data": url})
+
+    if hashes:
+        for hash_string in hashes:
+            if len(hash_string) == 32:
+                context["File"].append({"MD5": hash_string})
+            if len(hash_string) == 64:
+                context["File"].append({"SHA256": hash_string})
+            if len(hash_string) == 40:
+                context["File"].append({"SHA1": hash_string})
+
+    return_results({"EntryContext": context})
+
+
+def extract_single(entry_id):
+    res = demisto.getFilePath(entry_id)
+    if not res:
+        return_error("Entry {} not found".format(entry_id))
+    file_path = res['path']
+    file_name = res['name']
+    if file_name.lower().endswith('.txt') or file_name.lower().endswith('.csv'):
+        arr = []
+        with open(file_path) as f:
+            for line in f:
+                newline = line.replace("\n", "")
+                if newline != "":
+                    arr.append(newline)
+        return arr
+    else:
+        return_error("Not correct file format")
+
+
+def checkerindi_extract_single():
+    args = demisto.args()
+    entry_id = args.get('entryID')
+    mode = args.get('mode')
+    arr = extract_single(entry_id)
+    context = {}
+    output = []
+    if arr:
+        if mode == IP_MODE:
+            for ip in arr:
+                output.append({'Address': ip})
+            output_prefix = 'IP'
+            output_key = 'Address'
+        elif mode == URL_MODE:
+            for url in arr:
+                output.append({'Data': url})
+            output_prefix = 'URL'
+            output_key = 'Data'
+        elif mode == HASH_MODE:
+            output_prefix = 'Hash'
+            for hash_string in arr:
+                if len(hash_string) == 32:
+                    output.append({'MD5': hash_string})
+                    output_key = 'MD5'
+                elif len(hash_string) == 64:
+                    output.append({'SHA256': hash_string})
+                    output_key = 'SHA256'
+                elif len(hash_string) == 40:
+                    output.append({'SHA1': hash_string})
+                    output_key = 'SHA1'
+    results = CommandResults(
+        outputs_prefix=output_prefix,
+        outputs_key_field=output_key,
+        outputs=output
+    )
+    return_results(results)
+
+
+def common(args):
+    global ss_mode, imageName
+    indicator = args.get('indicator')
+    ss_mode = False
+    if args.get('screenshot') == "true":
+        ss_mode = True
+    ec = {}
+    if mode == IP_MODE:
+        try:
+            ip = indicator["Address"]
+        except:
+            ip = indicator
+        if ss_mode:
+            imageName = makeFileName(ip)
+        return ip
+
+    elif mode == URL_MODE:
+        try:
+            url = indicator["Data"]
+        except:
+            url = indicator
+        if ss_mode:
+            imageName = makeFileName(url)
+        return url
+    elif mode == HASH_MODE:
+        try:
+            if indicator["SHA256"]:
+                h = indicator["SHA256"]
+            elif indicator["SHA1"]:
+                h = indicator["SHA1"]
+            elif indicator["MD5"]:
+                h = indicator["MD5"]
+        except:
+            # print("Exception")
+            if isinstance(indicator, list):
+                h = indicator
+        if ss_mode:
+            imageName = makeFileName(h)
+        return h
+    elif mode == FILE_MODE:
+        entry_id = indicator
+        res = demisto.getFilePath(entry_id)
+        if not res:
+            return_error("Entry {} not found".format(entry_id))
+        if ss_mode:
+            imageName = makeFileName(res['name'])
+        return res
+
+
+def checkerindi_virustotal():
+    global mode
+    args = demisto.args()
+    mode = args.get('mode')
+    indicator = common(args)
+    if mode == IP_MODE:
+        vt, dbot = virusTotalIP(indicator)
+        output_ip(indicator, VT, vt, dbot)
+    elif mode == URL_MODE:
+        vt, dbot = virusTotalURL(indicator)
+        output_url(indicator, VT, vt, dbot)
+    elif mode == HASH_MODE:
+        vt, dbot = virusTotalHash(indicator)
+        output_hash(indicator, VT, vt, dbot)
+    elif mode == FILE_MODE:
+        file_path = indicator['path']
+        file_name = indicator['name']
+        vt, dbot = virusTotalFile(file_path)
+        output_hash(file_name, VT, vt, dbot)
+    else:
+        vt = NONE
+
+
+def checkerindi_ibm():
+    global mode
+    args = demisto.args()
+    mode = args.get('mode')
+    indicator = common(args)
+    if mode == IP_MODE:
+        ibm, dbot = ibm_IP(indicator)
+        output_ip(indicator, IBM, ibm, dbot)
+
+    elif mode == URL_MODE:
+        ibm, dbot = ibm_url(indicator)
+        output_url(indicator, IBM, ibm, dbot)
+
+
+def checkerindi_abusedIP():
+    global mode
+    mode = IP_MODE
+    args = demisto.args()
+    indicator = common(args)
+    abip, dbot = abusedIP(indicator)
+    output_ip(indicator, ABIP, abip, dbot)
+
+
+def checkerindi_fraudguard():
+    global mode
+    mode = IP_MODE
+    args = demisto.args()
+    indicator = common(args)
+    fg, dbot = fraudGuard(indicator)
+    output_ip(indicator, FG, fg, dbot)
+
+
+def checkerindi_auth0():
+    global mode
+    mode = IP_MODE
+    args = demisto.args()
+    indicator = common(args)
+    ath0, dbot = auth0(indicator)
+    output_ip(indicator, AUTH0, ath0, dbot)
+
+
+def checkerindi_google():
+    global mode
+    mode = URL_MODE
+    args = demisto.args()
+    indicator = common(args)
+    gsb, dbot = googleSafe(indicator)
+    output_url(indicator, GOOGLE, gsb, dbot)
+
+
+def checkerindi_phish():
+    global mode
+    mode = URL_MODE
+    args = demisto.args()
+    indicator = common(args)
+    pt, dbot = phishtank(indicator)
+    output_url(indicator, PHISH, pt, dbot)
+
+
+def checkerindi_urlscan():
+    global mode
+    mode = URL_MODE
+    args = demisto.args()
+    indicator = common(args)
+    us, dbot = urlscan(indicator)
+    output_url(indicator, URLSCAN, us[0], dbot)
+
+
+def checkerindi_cisco():
+    global mode
+    args = demisto.args()
+    mode = args.get('mode')
+    indicator = common(args)
+    ct, dbot = screenshot_ciscoTalos(indicator)
+    if mode == IP_MODE:
+        output_ip(indicator, CISCO, ct, dbot)
+    elif mode == URL_MODE:
+        output_url(indicator, CISCO, ct, dbot)
+
+
+def output_ip(indicator, name, score, dbot):
+    # ec = {}
+    # ec.update({
+    #     outputPaths['ip']: {'Address': indicator}
+    # })
+    dbot_score = Common.DBotScore(
+        indicator=indicator,
+        integration_name='Checker',
+        indicator_type=DBotScoreType.IP,
+        score=dbot
+    )
+    ip = Common.IP(
+        ip=indicator,
+        dbot_score=dbot_score
+    )
+    malic = True
+    if dbot == Common.DBotScore.GOOD or dbot == Common.DBotScore.NONE:
+        malic = False
+    return_results(CommandResults(
+        outputs_prefix='Checker.IP',
+        outputs_key_field='Indicator',
+        outputs=[{
+            'Indicator': indicator,
+            name: {
+                'score': score,
+                'malicious': malic
+            }}],
+        indicators=[ip]))
+    # ec.update({
+    #     outputPaths['dbotscore']: {'Indicator': indicator, 'Type': mode, 'Vendor': name, 'Score': score}
+    # })
+    # return_results({"EntryContext": ec})
+
+
+def output_url(indicator, name, score, dbot):
+    # ec = {}
+    # ec.update({
+    #     outputPaths['url']: {'Data': indicator}
+    # })
+    dbot_score = Common.DBotScore(
+        indicator=indicator,
+        integration_name='Checker',
+        indicator_type=DBotScoreType.URL,
+        score=dbot
+    )
+    url = Common.URL(
+        url=indicator,
+        dbot_score=dbot_score
+    )
+    malic = True
+    if dbot == Common.DBotScore.GOOD or dbot == Common.DBotScore.NONE:
+        malic = False
+    return_results(CommandResults(
+        outputs_prefix='Checker.URL',
+        outputs_key_field='Indicator',
+        outputs=[{
+            'Indicator': indicator,
+            name: {
+                'score': score,
+                'malicious': malic
+            }}],
+        indicators=[url]))
+    # ec.update({
+    #     outputPaths['dbotscore']: {'Indicator': indicator, 'Type': mode, 'Vendor': name, 'Score': score}
+    # })
+    # return_results({"EntryContext": ec})
+
+
+def output_hash(indicator, name, score, dbot):
+    # ec = {}
+    # ec.update({
+    #     outputPaths['file']: {
+    #         'MD5': score[1],
+    #         'SHA1': score[2],
+    #         'SHA256': score[3],
+    #     }
+    # })
+    dbot_score = Common.DBotScore(
+        indicator=indicator,
+        integration_name='Checker',
+        indicator_type=DBotScoreType.FILE,
+        score=dbot
+    )
+    f = Common.File(
+        dbot_score=dbot_score,
+        md5=score[1],
+        sha1=score[2],
+        sha256=score[3]
+    )
+    malic = True
+    if dbot == Common.DBotScore.GOOD or dbot == Common.DBotScore.NONE:
+        malic = False
+    return_results(CommandResults(
+        outputs_prefix='Checker.File',
+        outputs_key_field='Indicator',
+        outputs=[{
+            'Indicator': indicator,
+            'MD5': score[1],
+            'SHA1': score[2],
+            'SHA256': score[3],
+            name: {
+                'score': score[4],
+                'malicious': malic,
+            }}],
+        indicators=[f]))
+    # ec.update({
+    #     outputPaths['dbotscore']: {'Indicator': indicator, 'Type': mode, 'Vendor': name, 'Score': score}
+    # })
+    # return_results({"EntryContext": ec})
+
+
+def checkerindi_print():
+    global mode, ss_mode
+    args = demisto.args()
+    ctx = demisto.context()
+    mode = args.get('mode')
+    ss_mode = False
+    if args.get('screenshot') == "true":
+        ss_mode = True
+
+    if mode == IP_MODE:
+        ip = ctx['Checker']['IP']
+        output = {"ip": ip["Indicator"], "Verdict": NONE, SAFE: [], BLOCK: []}
+        output = append_result(ip, output)
+        output_key = 'IP'
+        markdown = '### IP Reputation Check\n'
+        markdown += tableToMarkdown('Results', output, headers=get_header(IP_MODE))
+
+    elif mode == URL_MODE:
+        url = ctx["Checker"]["URL"]
+        output = {"url": url["Indicator"], "Verdict": NONE, SAFE: [], BLOCK: []}
+        output = append_result(url, output)
+        output_key = 'URL'
+        markdown = '### URL Reputation Check\n'
+        markdown += tableToMarkdown('Results', output, headers=get_header(URL_MODE))
+
+    elif mode == HASH_MODE:
+        h = ctx["Checker"]["File"]
+        output = {"hash": h["Indicator"], "Verdict": NONE, "MD5": h["MD5"], "SHA1": h["SHA1"],
+                  "SHA256": h["SHA256"]}
+        output = append_result(h, output)
+        output_key = 'File'
+        markdown = '### Hash Reputation Check\n'
+        markdown += tableToMarkdown('Results', output, headers=get_header(HASH_MODE))
+
+    elif mode == FILE_MODE:
+        h = ctx["Checker"]["File"]
+        if isinstance(h, list):
+            for f in h:
+                try:
+                    output = {"file": f["Indicator"], "Verdict": NONE, "MD5": f["MD5"], "SHA1": f["SHA1"],
+                              "SHA256": f["SHA256"]}
+                    output = append_result(f, output)
+                except:
+                    pass
+        else:
+            output = {"file": h["Indicator"], "Verdict": NONE, "MD5": h["MD5"], "SHA1": h["SHA1"],
+                      "SHA256": h["SHA256"]}
+            output = append_result(h, output)
+        output.pop(SAFE)
+        output.pop(BLOCK)
+        output_key = 'File'
+        markdown = '### File Reputation Check\n'
+        markdown += tableToMarkdown('Results', output, headers=get_header(FILE_MODE))
+
+    if ss_mode:
+        # Return ZIP
+        with ZipFile(mode + '.zip', 'a') as zipObj:
+            if isinstance(ctx['InfoFile'], list):
+                for pic in ctx['InfoFile']:
+                    f = demisto.getFilePath(pic['EntryID'])
+                    path = f['path']
+                    name = f['name']
+                    with open(path, 'rb') as f, open(name, 'wb') as image:
+                        data = f.read()
+                        image.write(data)
+                    zipObj.write(name)
+            else:
+                f = demisto.getFilePath(ctx['InfoFile']['EntryID'])
+                path = f['path']
+                name = f['name']
+                with open(path, 'rb') as f, open(name, 'wb') as image:
+                    data = f.read()
+                    image.write(data)
+                zipObj.write(name)
+        zip = fileResult(filename=mode + '.zip', data=open(mode + '.zip', "rb").read())
+        return_results(zip)
+
+    # return reputation
+    results = CommandResults(
+        readable_output=markdown,
+        outputs_prefix='Checker',
+        outputs_key_field=output_key,
+        outputs=output
+    )
+    return_results(results)
+
+
+def append_result(indicator, output):
+    safe = []
+    block = []
+    for k in indicator.keys():
+        if k != "Indicator" and k != "Verdict" and k != "MD5" and k != "SHA1" and k != "SHA256":
+            output[k] = indicator[k]['score']
+            if indicator[k]['malicious']:
+                block.append(k)
+            else:
+                safe.append(k)
+    output[SAFE] = safe
+    output[BLOCK] = block
+    output = get_verdict(output)
+    return output
+
+
+def checkerindi_results():
+    global mode, ss_mode
+    args = demisto.args()
+    ctx = demisto.context()
+    result = []
+    filename = ""
+    mode = args.get('mode')
+    if args.get('filename'):
+        filename = args.get('filename')
+    ss_mode = False
+    if args.get('screenshot') == "true":
+        ss_mode = True
+
+    if mode == IP_MODE:
+        if not filename:
+            filename = "ip_{}.csv".format(datetime.now().strftime("%Y-%m-%d_%H%M"))
+        header = get_header(IP_MODE)
+        for ip in ctx["Checker"]["IP"]:
+            output = {"ip": ip["Indicator"], "Verdict": NONE, SAFE: [], BLOCK: []}
+            output = append_result(ip, output)
+            result.append(output)
+            save_record_csv(output, filename, header)
+        markdown = '### IP Batch Reputation Check\n'
+        output_key = 'IP'
+
+    elif mode == URL_MODE:
+        if not filename:
+            filename = "url_{}.csv".format(datetime.now().strftime("%Y-%m-%d_%H%M"))
+        header = get_header(URL_MODE)
+        for url in ctx["Checker"]["URL"]:
+            output = {"url": url["Indicator"], "Verdict": NONE, SAFE: [], BLOCK: []}
+            output = append_result(url, output)
+            result.append(output)
+            save_record_csv(output, filename, header)
+        output_key = 'URL'
+        markdown = '### URL Batch Reputation Check\n'
+
+    elif mode == HASH_MODE:
+        if not filename:
+            filename = "hash_{}.csv".format(datetime.now().strftime("%Y-%m-%d_%H%M"))
+        header = get_header(HASH_MODE)
+        for h in ctx["Checker"]["File"]:
+            try:
+                output = {"hash": h["Indicator"], "Verdict": NONE, "MD5": h["MD5"], "SHA1": h["SHA1"], "SHA256": h["SHA256"]}
+                output = append_result(h, output)
+                result.append(output)
+                save_record_csv(output, filename, header)
+            except:
+                pass
+        output_key = 'File'
+        markdown = '### Hash Batch Reputation Check\n'
+
+    if ss_mode:
+        # Return ZIP
+        with ZipFile(mode + '.zip', 'a') as zipObj:
+            zipObj.write(filename)
+            for pic in ctx['InfoFile']:
+                f = demisto.getFilePath(pic['EntryID'])
+                path = f['path']
+                name = f['name']
+                with open(path, 'rb') as f, open(name, 'wb') as image:
+                    data = f.read()
+                    image.write(data)
+                zipObj.write(name)
+        zip = fileResult(filename=mode + '.zip', data=open(mode + '.zip', "rb").read())
+        return_results(zip)
+    # return csv
+    res = fileResult(filename=filename, data=open(filename, "rb").read())
+    return_results(res)
+    # return reputation
+    markdown += tableToMarkdown('Results', result, headers=header)
+    results = CommandResults(
+        readable_output=markdown,
+        outputs_prefix='Checker',
+        outputs_key_field=output_key,
+        outputs=result
+    )
+    return_results(results)
+
+
+def test_module():
+    """
+    Returning 'ok' indicates that the integration works like it is supposed to. Connection to the service is successful.
+
+    Args:
+        client: HelloWorld client
+
+    Returns:
+        'ok' if test passed, anything else will fail the test.
+    """
+
+    # # result = client.say_hello('DBot')
+    # if 'Hello DBot' == result:
+    #     return 'ok'
+    # else:
+    #     return 'Test failed because ......'
 
 
 def fetch_incidents(client, last_run, first_fetch_time):
@@ -1439,44 +1979,60 @@ def main():
     """
 
     # get the service API url
-    base_url = urljoin(demisto.params()['url'], '/api/v1/suffix')
+    # if demisto.params()['url']
+    # base_url = urljoin(demisto.params()['url'], '/api/v1/suffix')
 
-    verify_certificate = not demisto.params().get('insecure', False)
-
-    # How much time before the first fetch to retrieve incidents
-    first_fetch_time = demisto.params().get('fetch_time', '3 days').strip()
-
-    proxy = demisto.params().get('proxy', False)
+    # verify_certificate = not demisto.params().get('insecure', False)
+    #
+    # # How much time before the first fetch to retrieve incidents
+    # first_fetch_time = demisto.params().get('fetch_time', '3 days').strip()
+    #
+    # proxy = demisto.params().get('proxy', False)
 
     LOG(f'Command being called is {demisto.command()}')
     try:
-        client = Client(
-            base_url=base_url,
-            verify=verify_certificate,
-            proxy=proxy)
+        # client = Client(
+        #     base_url=base_url,
+        #     verify=verify_certificate,
+        #     proxy=proxy)
 
         if demisto.command() == 'test-module':
             # This is the call made when pressing the integration Test button.
-            result = test_module(client)
+            result = test_module()
             demisto.results(result)
 
-        elif demisto.command() == 'fetch-incidents':
-            # Set and define the fetch incidents command to run after activated via integration settings.
-            next_run, incidents = fetch_incidents(
-                client=client,
-                last_run=demisto.getLastRun(),
-                first_fetch_time=first_fetch_time)
-
-            demisto.setLastRun(next_run)
-            demisto.incidents(incidents)
-
         elif demisto.command() == 'checker':
-            demisto.results(checker())
+            checker()
         elif demisto.command() == 'checker-batch':
-            demisto.results(checker_batch())
+            checker_batch()
         elif demisto.command() == 'checker-extract':
-            demisto.results(checker_extract())
-
+            checker_extract()
+        elif demisto.command() == 'checkerindi-extract-all':
+            checkerindi_extract_all()
+        elif demisto.command() == 'checkerindi-extract-single':
+            checkerindi_extract_single()
+        elif demisto.command() == 'checkerindi-results':
+            checkerindi_results()
+        elif demisto.command() == 'checkerindi-print':
+            checkerindi_print()
+        elif demisto.command() == 'checkerindi-virustotal':
+            checkerindi_virustotal()
+        elif demisto.command() == 'checkerindi-ibm':
+            checkerindi_ibm()
+        elif demisto.command() == 'checkerindi-abuseip':
+            checkerindi_abusedIP()
+        elif demisto.command() == 'checkerindi-fraudguard':
+            checkerindi_fraudguard()
+        elif demisto.command() == 'checkerindi-auth0':
+            checkerindi_auth0()
+        elif demisto.command() == 'checkerindi-google':
+            checkerindi_google()
+        elif demisto.command() == 'checkerindi-phish':
+            checkerindi_phish()
+        elif demisto.command() == 'checkerindi-cisco':
+            checkerindi_cisco()
+        elif demisto.command() == 'checkerindi-urlscan':
+            checkerindi_urlscan()
     # Log exceptions
     except Exception as e:
         demisto.info(f'Failed to execute {demisto.command()} command. Error: {str(e)}')

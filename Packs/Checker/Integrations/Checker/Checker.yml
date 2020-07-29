@@ -131,6 +131,14 @@ script:
       type: Unknown
     - contextPath: IP.Verdict
       type: Unknown
+    - contextPath: DBotScore.Indicator
+      type: Unknown
+    - contextPath: DBotScore.Score
+      type: Unknown
+    - contextPath: DBotScore.Type
+      type: Unknown
+    - contextPath: DBotScore.Vendor
+      type: Unknown
   - arguments:
     - default: false
       description: list of ip addresses to be checked
@@ -190,6 +198,14 @@ script:
       type: Unknown
     - contextPath: File.Output
       type: Unknown
+    - contextPath: DBotScore.Indicator
+      type: Unknown
+    - contextPath: DBotScore.Type
+      type: Unknown
+    - contextPath: DBotScore.Score
+      type: Unknown
+    - contextPath: DBotScore.Vendor
+      type: Unknown
   - arguments:
     - auto: PREDEFINED
       default: false
@@ -213,6 +229,548 @@ script:
       checks
     execution: false
     name: checker-extract
+  - arguments:
+    - default: false
+      description: Can be ip, url, hash
+      isArray: false
+      name: indicator
+      required: false
+      secret: false
+    - auto: PREDEFINED
+      default: false
+      isArray: false
+      name: mode
+      predefined:
+      - ip
+      - url
+      - hash
+      - file
+      required: false
+      secret: false
+    - auto: PREDEFINED
+      default: false
+      defaultValue: 'false'
+      isArray: false
+      name: screenshot
+      predefined:
+      - 'true'
+      - 'false'
+      required: false
+      secret: false
+    deprecated: false
+    description: Checks virus total reputation for ip or url or hash or file
+    execution: false
+    name: checkerindi-virustotal
+    outputs:
+    - contextPath: IP.Address
+      type: String
+    - contextPath: URL.Data
+      type: String
+    - contextPath: URL.VirusTotal.Score
+      type: String
+    - contextPath: URL.VirusTotal.Malicious
+      type: Boolean
+    - contextPath: File.MD5
+      type: String
+    - contextPath: File.SHA1
+      type: String
+    - contextPath: File.SHA256
+      type: String
+    - contextPath: File.VirusTotal.Score
+      type: String
+    - contextPath: File.VirusTotal.Malicious
+      type: Boolean
+    - contextPath: DBotScore.Indicator
+      type: String
+    - contextPath: DBotScore.Type
+      type: String
+    - contextPath: DBotScore.Vendor
+      type: String
+    - contextPath: DBotScore.Score
+      type: String
+    - contextPath: Checker.IP
+      type: Unknown
+    - contextPath: Checker.IP.Indicator
+      type: Unknown
+    - contextPath: Checker.IP.VirusTotal.malicious
+      type: Unknown
+    - contextPath: Checker.IP.VirusTotal.score
+      type: Unknown
+    - contextPath: Checker.URL.Indicator
+      type: Unknown
+    - contextPath: Checker.URL.VirusTotal.score
+      type: Unknown
+    - contextPath: Checker.URL.VirusTotal.malicious
+      type: Unknown
+    - contextPath: Checker.File.Indicator
+      type: Unknown
+    - contextPath: Checker.File.VirusTotal.score
+      type: Unknown
+    - contextPath: Checker.File.VirusTotal.malicious
+      type: Unknown
+  - arguments:
+    - default: false
+      description: entry ID of the csv or text file to extract ip, url or hashes from
+      isArray: false
+      name: entryID
+      required: false
+      secret: false
+    deprecated: false
+    description: Extract all the ip, url and hash found from csv or text file and
+      return the array of ip, url or hash
+    execution: false
+    name: checkerindi-extract-all
+    outputs:
+    - contextPath: IP.Address
+      type: String
+    - contextPath: URL.Data
+      type: String
+    - contextPath: File.MD5
+      type: String
+    - contextPath: File.SHA256
+      type: String
+    - contextPath: File.SHA1
+      type: String
+  - arguments:
+    - default: false
+      description: entry ID to extract a single type (IP or URL or hash) from the
+        first column or from every line in text file
+      isArray: false
+      name: entryID
+      required: false
+      secret: false
+    - auto: PREDEFINED
+      default: false
+      description: Mode of the indicator
+      isArray: false
+      name: mode
+      predefined:
+      - ip
+      - url
+      - hash
+      required: false
+      secret: false
+    deprecated: false
+    description: Extract a list of IPs, URLs or Hashes from te first column of the
+      CSV or every line from text file
+    execution: false
+    name: checkerindi-extract-single
+    outputs:
+    - contextPath: IP.Address
+      type: Unknown
+    - contextPath: URL.Data
+      type: String
+    - contextPath: File.MD5
+      type: String
+    - contextPath: File.SHA256
+      type: String
+    - contextPath: File.SHA1
+      type: String
+  - arguments:
+    - default: false
+      description: ip or url
+      isArray: false
+      name: indicator
+      required: false
+      secret: false
+    - auto: PREDEFINED
+      default: false
+      isArray: false
+      name: mode
+      predefined:
+      - ip
+      - url
+      required: false
+      secret: false
+    - auto: PREDEFINED
+      default: false
+      defaultValue: 'false'
+      isArray: false
+      name: screenshot
+      predefined:
+      - 'true'
+      - 'false'
+      required: false
+      secret: false
+    deprecated: false
+    description: Checks IBM X Force for reputation of ip or url
+    execution: false
+    name: checkerindi-ibm
+    outputs:
+    - contextPath: IP.Address
+      type: Unknown
+    - contextPath: DBotScore.Indicator
+      type: Unknown
+    - contextPath: DBotScore.Type
+      type: Unknown
+    - contextPath: DBotScore.Vendor
+      type: Unknown
+    - contextPath: DBotScore.Score
+      type: Unknown
+    - contextPath: Checker.IP
+      type: Unknown
+    - contextPath: Checker.IP.Indicator
+      type: Unknown
+    - contextPath: Checker.IP.IBM.score
+      type: Unknown
+    - contextPath: Checker.IP.IBM.malicious
+      type: Unknown
+    - contextPath: URL.Data
+      type: Unknown
+    - contextPath: Checker.URL.Indicator
+      type: Unknown
+    - contextPath: Checker.URL.IBM.score
+      type: Unknown
+    - contextPath: Checker.URL.IBM.malicious
+      type: Unknown
+    - type: Unknown
+  - arguments:
+    - default: false
+      description: File name of CSV and ZIP file (if ss mode). Default will be ip_2020-05-09.csv
+        for example.
+      isArray: false
+      name: filename
+      required: false
+      secret: false
+    - auto: PREDEFINED
+      default: false
+      description: ip, url or hash mode
+      isArray: false
+      name: mode
+      predefined:
+      - ip
+      - url
+      - hash
+      required: false
+      secret: false
+    - auto: PREDEFINED
+      default: false
+      defaultValue: 'false'
+      description: By default will be initialised as false. With screenshot mode enabled,
+        ZIP file containing all the screenshot will be returned additionally
+      isArray: true
+      name: screenshot
+      predefined:
+      - 'true'
+      - 'false'
+      required: false
+      secret: false
+    deprecated: false
+    description: Returns results from checkerindi functions by returning CSV file
+      and ZIP file if screenshot mode
+    execution: false
+    name: checkerindi-results
+  - arguments:
+    - default: false
+      description: ip address
+      isArray: false
+      name: indicator
+      required: false
+      secret: false
+    - auto: PREDEFINED
+      default: false
+      defaultValue: 'false'
+      isArray: false
+      name: screenshot
+      predefined:
+      - 'true'
+      - 'false'
+      required: false
+      secret: false
+    deprecated: false
+    description: Checks AbuseIPDB for reputation of IP
+    execution: false
+    name: checkerindi-abuseip
+    outputs:
+    - contextPath: IP.Address
+      type: Unknown
+    - contextPath: DBotScore.Indicator
+      type: Unknown
+    - contextPath: DBotScore.Type
+      type: Unknown
+    - contextPath: DBotScore.Vendor
+      type: Unknown
+    - contextPath: DBotScore.Score
+      type: Unknown
+    - contextPath: Checker.IP.AbuseIP.score
+      type: Unknown
+    - contextPath: Checker.IP.AbuseIP.malicious
+      type: Unknown
+    - contextPath: Checker.IP.Indicator
+      type: Unknown
+  - arguments:
+    - default: false
+      description: ip address
+      isArray: false
+      name: indicator
+      required: false
+      secret: false
+    - auto: PREDEFINED
+      default: false
+      defaultValue: 'false'
+      isArray: false
+      name: screenshot
+      predefined:
+      - 'true'
+      - 'false'
+      required: false
+      secret: false
+    deprecated: false
+    description: Checks FraudGuard for IP reputation
+    execution: false
+    name: checkerindi-fraudguard
+    outputs:
+    - contextPath: IP.Address
+      type: Unknown
+    - contextPath: DBotScore.Indicator
+      type: Unknown
+    - contextPath: DBotScore.Type
+      type: Unknown
+    - contextPath: DBotScore.Vendor
+      type: Unknown
+    - contextPath: DBotScore.Score
+      type: Unknown
+    - contextPath: Checker.IP.Indicator
+      type: Unknown
+    - contextPath: Checker.IP.FraudGuard.score
+      type: Unknown
+    - contextPath: Checker.IP.FraudGuard.malicious
+      type: Unknown
+  - arguments:
+    - default: false
+      description: ip address
+      isArray: false
+      name: indicator
+      required: false
+      secret: false
+    - auto: PREDEFINED
+      default: false
+      defaultValue: 'false'
+      isArray: false
+      name: screenshot
+      predefined:
+      - 'true'
+      - 'false'
+      required: false
+      secret: false
+    deprecated: false
+    description: Checks Auth0 for IP reputation
+    execution: false
+    name: checkerindi-auth0
+    outputs:
+    - contextPath: IP.Address
+      type: Unknown
+    - contextPath: DBotScore.Indicator
+      type: Unknown
+    - contextPath: DBotScore.Type
+      type: Unknown
+    - contextPath: DBotScore.Vendor
+      type: Unknown
+    - contextPath: DBotScore.Score
+      type: Unknown
+    - contextPath: Checker.IP.Indicator
+      type: Unknown
+    - contextPath: Checker.IP.Auth0.score
+      type: Unknown
+    - contextPath: Checker.IP.Auth0.malicious
+      type: Unknown
+  - arguments:
+    - default: false
+      description: URL link
+      isArray: false
+      name: indicator
+      required: false
+      secret: false
+    - auto: PREDEFINED
+      default: false
+      defaultValue: 'false'
+      isArray: false
+      name: screenshot
+      predefined:
+      - 'true'
+      - 'false'
+      required: false
+      secret: false
+    deprecated: false
+    description: Checks Google Safe Browsing for url reputation
+    execution: false
+    name: checkerindi-google
+    outputs:
+    - contextPath: URL.Data
+      type: Unknown
+    - contextPath: DBotScore.Indicator
+      type: Unknown
+    - contextPath: DBotScore.Type
+      type: Unknown
+    - contextPath: DBotScore.Vendor
+      type: Unknown
+    - contextPath: DBotScore.Score
+      type: Unknown
+    - contextPath: Checker.URL.Indicator
+      type: Unknown
+    - contextPath: Checker.URL.GoogleSafeBrowsing.score
+      type: Unknown
+    - contextPath: Checker.URL.GoogleSafeBrowsing.malicious
+      type: Unknown
+  - arguments:
+    - default: false
+      description: URL link
+      isArray: false
+      name: indicator
+      required: false
+      secret: false
+    - auto: PREDEFINED
+      default: false
+      defaultValue: 'false'
+      isArray: false
+      name: screenshot
+      predefined:
+      - 'true'
+      - 'false'
+      required: false
+      secret: false
+    deprecated: false
+    description: Checks Phish Tank to check if url is a phish
+    execution: false
+    name: checkerindi-phish
+    outputs:
+    - contextPath: URL.Data
+      type: Unknown
+    - contextPath: DBotScore.Indicator
+      type: Unknown
+    - contextPath: DBotScore.Type
+      type: Unknown
+    - contextPath: DBotScore.Vendor
+      type: Unknown
+    - contextPath: DBotScore.Score
+      type: Unknown
+    - contextPath: Checker.URL.Indicator
+      type: Unknown
+    - contextPath: Checker.URL.PhishTank.score
+      type: Unknown
+    - contextPath: Checker.URL.PhishTank.malicious
+      type: Unknown
+  - arguments:
+    - default: false
+      description: ip or url
+      isArray: false
+      name: indicator
+      required: false
+      secret: false
+    - auto: PREDEFINED
+      default: false
+      isArray: false
+      name: mode
+      predefined:
+      - ip
+      - url
+      required: false
+      secret: false
+    - auto: PREDEFINED
+      default: false
+      defaultValue: 'false'
+      isArray: false
+      name: screenshot
+      predefined:
+      - 'true'
+      - 'false'
+      required: false
+      secret: false
+    deprecated: false
+    description: Checks Cisco Talos Intelligence for ip or url reputation
+    execution: false
+    name: checkerindi-cisco
+    outputs:
+    - contextPath: IP.Address
+      type: Unknown
+    - contextPath: URL.Data
+      type: Unknown
+    - contextPath: DBotScore.Indicator
+      type: Unknown
+    - contextPath: DBotScore.Type
+      type: Unknown
+    - contextPath: DBotScore.Vendor
+      type: Unknown
+    - contextPath: DBotScore.Score
+      type: Unknown
+    - contextPath: Checker.IP.Indicator
+      type: Unknown
+    - contextPath: Checker.URL.Indicator
+      type: Unknown
+    - contextPath: Checker.IP.CiscoTalos.score
+      type: Unknown
+    - contextPath: Checker.IP.CiscoTalos.malicious
+      type: Unknown
+    - contextPath: Checker.URL.CiscoTalos.score
+      type: Unknown
+    - contextPath: Checker.URL.CiscoTalos.malicious
+      type: Unknown
+  - arguments:
+    - default: false
+      description: url link
+      isArray: false
+      name: indicator
+      required: false
+      secret: false
+    - auto: PREDEFINED
+      default: false
+      defaultValue: 'false'
+      isArray: false
+      name: screenshot
+      predefined:
+      - 'true'
+      - 'false'
+      required: false
+      secret: false
+    deprecated: false
+    description: Checks URLscan.io for URL reputation along with screenshot of the
+      questionable site
+    execution: false
+    name: checkerindi-urlscan
+    outputs:
+    - contextPath: URL.Data
+      type: Unknown
+    - contextPath: DBotScore.Indicator
+      type: Unknown
+    - contextPath: DBotScore.Type
+      type: Unknown
+    - contextPath: DBotScore.Vendor
+      type: Unknown
+    - contextPath: DBotScore.Score
+      type: Unknown
+    - contextPath: Checker.URL.Indicator
+      type: Unknown
+    - contextPath: Checker.URL.URLScan.score
+      type: Unknown
+    - contextPath: Checker.URL.URLScan.malicious
+      type: Unknown
+  - arguments:
+    - auto: PREDEFINED
+      default: false
+      isArray: false
+      name: mode
+      predefined:
+      - ip
+      - url
+      - hash
+      - file
+      required: false
+      secret: false
+    - auto: PREDEFINED
+      default: false
+      defaultValue: 'false'
+      isArray: false
+      name: screenshot
+      predefined:
+      - 'true'
+      - 'false'
+      required: false
+      secret: false
+    deprecated: false
+    description: Prints formatted results for single output. If screenshot mode, will
+      return zip file as well
+    execution: false
+    name: checkerindi-print
   dockerimage: demisto/chromium:1.0.0.6596
   feed: false
   isfetch: false
