@@ -1,0 +1,185 @@
+id: 0a8d2406-94f5-405a-84ae-4c720ef69efa
+version: 20
+name: Checker
+description: 'All-in-one automation: Reputation check for a single ip, url, hash or
+  file.'
+starttaskid: "0"
+tasks:
+  "0":
+    id: "0"
+    taskid: 962a792f-0474-4b3e-80c4-cf340afcb234
+    type: start
+    task:
+      id: 962a792f-0474-4b3e-80c4-cf340afcb234
+      version: -1
+      name: ""
+      iscommand: false
+      brand: ""
+    nexttasks:
+      '#none#':
+      - "1"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 450,
+          "y": 50
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "1":
+    id: "1"
+    taskid: 14b82a06-6505-4db1-8b7d-557348714162
+    type: regular
+    task:
+      id: 14b82a06-6505-4db1-8b7d-557348714162
+      version: -1
+      name: Check Repuation of different indicators
+      description: Checks reputation of URL, Hash, IP, File using OSINTs
+      script: Checker|||checker
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      file:
+        simple: ${inputs.file}
+      hash: {}
+      ip:
+        complex:
+          root: IP
+          accessor: Address
+      screenshot:
+        complex:
+          root: incident
+          filters:
+          - - operator: containsString
+              left:
+                value:
+                  simple: incident.details
+                iscontext: true
+              right:
+                value:
+                  simple: screenshot
+          accessor: details
+          transformers:
+          - operator: substringFrom
+            args:
+              from:
+                value:
+                  simple: screenshot
+          - operator: toLowerCase
+          - operator: trim
+      url:
+        complex:
+          root: URL
+          accessor: Data
+    continueonerror: true
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 450,
+          "y": 230
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+view: |-
+  {
+    "linkLabelsPosition": {},
+    "paper": {
+      "dimensions": {
+        "height": 275,
+        "width": 380,
+        "x": 450,
+        "y": 50
+      }
+    }
+  }
+inputs:
+- key: ip
+  value:
+    simple: ${IP}
+  required: false
+  description: ""
+  playbookInputQuery: null
+- key: url
+  value:
+    simple: ${URL}
+  required: false
+  description: ""
+  playbookInputQuery: null
+- key: file
+  value:
+    simple: ${File.EntryID}
+  required: false
+  description: ""
+  playbookInputQuery: null
+- key: screenshot
+  value:
+    complex:
+      root: incident
+      filters:
+      - - operator: containsGeneral
+          left:
+            value:
+              simple: incident.details
+            iscontext: true
+          right:
+            value:
+              simple: screenshot
+      accessor: details
+      transformers:
+      - operator: substringFrom
+        args:
+          from:
+            value:
+              simple: screenshot
+      - operator: trim
+      - operator: toLowerCase
+  required: false
+  description: ""
+  playbookInputQuery: null
+outputs:
+- contextPath: DBotScore.Indicator
+- contextPath: DBotScore.Score
+- contextPath: DBotScore.Type
+- contextPath: DBotScore.Vendor
+- contextPath: IP.Address
+  description: IP address
+- contextPath: URL.Data
+- contextPath: File.MD5
+- contextPath: File.SHA1
+- contextPath: File.SHA256
+- contextPath: Checker
+- contextPath: Checker.URL
+- contextPath: Checker.File
+- contextPath: Checker.Verdict
+- contextPath: Checker.Safe
+- contextPath: Checker.Block
+- contextPath: Checker.MD5
+- contextPath: Checker.SHA1
+- contextPath: Checker.SHA256
+- contextPath: Checker.IP.Indicator
+- contextPath: Checker.IP.VirusTotal
+- contextPath: Checker.IP.AbuseIP
+- contextPath: Checker.IP.IBM
+- contextPath: Checker.IP.FraudGuard
+- contextPath: Checker.IP.Auth0
+- contextPath: Checker.IP.CiscoTalos
+- contextPath: Checker.URL.Indicator
+- contextPath: Checker.URL.VirusTotal
+- contextPath: Checker.URL.IBM
+- contextPath: Checker.URL.GoogleSafeBrowsing
+- contextPath: Checker.URL.PhishTank
+- contextPath: Checker.URL.CiscoTalos
+- contextPath: Checker.URL.URLScan
+- contextPath: Checker.File.Indicator
+- contextPath: Checker.File.VirusTotal

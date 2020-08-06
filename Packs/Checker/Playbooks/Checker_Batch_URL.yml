@@ -1,0 +1,127 @@
+id: Checker_Batch_URL
+version: -1
+name: Checker_Batch_URL
+description: 'All-in-one automation: URL reputation check is carried out from a list
+  of URLs provided in csv or text file.  CSV or text file should contain a column
+  (1st column) of urls without headers.'
+starttaskid: "0"
+tasks:
+  "0":
+    id: "0"
+    taskid: f6aa0b08-facf-4cc8-8457-b76a88c3ae9d
+    type: start
+    task:
+      id: f6aa0b08-facf-4cc8-8457-b76a88c3ae9d
+      version: -1
+      name: ""
+      iscommand: false
+      brand: ""
+      description: ''
+    nexttasks:
+      '#none#':
+      - "1"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 450,
+          "y": 50
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "1":
+    id: "1"
+    taskid: 942341f1-7b8e-47c9-88da-24d768ab93a9
+    type: regular
+    task:
+      id: 942341f1-7b8e-47c9-88da-24d768ab93a9
+      version: -1
+      name: Check Reputation of different URLs
+      description: Check in batch the reputation of URL, Hash, IP and files  using
+        OSINTs
+      script: Checker|||checker-batch
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      entryID:
+        simple: ${File.EntryID}
+      hashes: {}
+      ips: {}
+      mode:
+        simple: url
+      screenshot:
+        simple: ${inputs.screenshot mode}
+      screenshot mode:
+        simple: ${inputs.screenshot mode}
+      urls: {}
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 450,
+          "y": 200
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+view: |-
+  {
+    "linkLabelsPosition": {},
+    "paper": {
+      "dimensions": {
+        "height": 245,
+        "width": 380,
+        "x": 450,
+        "y": 50
+      }
+    }
+  }
+inputs:
+- key: csv file
+  value:
+    simple: ${File}
+  required: false
+  description: ""
+  playbookInputQuery:
+- key: screenshot mode
+  value:
+    complex:
+      root: incident
+      filters:
+      - - operator: containsGeneral
+          left:
+            value:
+              simple: incident.details
+            iscontext: true
+          right:
+            value:
+              simple: screenshot
+      accessor: details
+      transformers:
+      - operator: substringFrom
+        args:
+          from:
+            value:
+              simple: screenshot
+      - operator: trim
+      - operator: toLowerCase
+  required: false
+  description: ""
+  playbookInputQuery:
+outputs:
+- contextPath: DBotScore.Indicator
+- contextPath: DBotScore.Type
+- contextPath: DBotScore.Score
+- contextPath: DBotScore.Vendor
+- contextPath: URL
+fromversion: 5.0.0
+tests:
+- No tests (auto formatted)

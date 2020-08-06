@@ -1,0 +1,270 @@
+id: c8790842-8db8-4952-8c87-d8e9a3779515
+version: 7
+name: Checkerindi_URL_Screenshot
+description: Checks for URL reputation using Virus Total, IBM X Force, Google Safe
+  Browsing, Phish Tank, Cisco Talos Intelligence and URLscan.io. Screenshot mode is
+  enabled. Used as sub-playbook.
+starttaskid: "0"
+tasks:
+  "0":
+    id: "0"
+    taskid: 1e856eda-9a8f-41ff-891b-d0741cfce4ba
+    type: start
+    task:
+      id: 1e856eda-9a8f-41ff-891b-d0741cfce4ba
+      version: -1
+      name: ""
+      iscommand: false
+      brand: ""
+    nexttasks:
+      '#none#':
+      - "1"
+      - "2"
+      - "3"
+      - "4"
+      - "5"
+      - "6"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 1050,
+          "y": 110
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "1":
+    id: "1"
+    taskid: a72b6c99-c2e9-4ab8-8774-9406a73d24a1
+    type: regular
+    task:
+      id: a72b6c99-c2e9-4ab8-8774-9406a73d24a1
+      version: -1
+      name: Virus Total URL Reputation Check
+      description: Checks virus total reputation for ip or url or hash or file
+      script: Checker|||checkerindi-virustotal
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      indicator:
+        simple: ${inputs.url}
+      mode:
+        simple: url
+      screenshot:
+        simple: "true"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 50,
+          "y": 360
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "2":
+    id: "2"
+    taskid: 826771d4-664a-4333-894f-00c34f531af2
+    type: regular
+    task:
+      id: 826771d4-664a-4333-894f-00c34f531af2
+      version: -1
+      name: IBM X Force URL Reputation Check
+      description: Checks IBM X Force for reputation of ip or url
+      script: Checker|||checkerindi-ibm
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      indicator:
+        simple: ${inputs.url}
+      mode:
+        simple: url
+      screenshot:
+        simple: "true"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 450,
+          "y": 360
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "3":
+    id: "3"
+    taskid: 84172234-fc23-4b0a-8c55-331b0a3c4aa2
+    type: regular
+    task:
+      id: 84172234-fc23-4b0a-8c55-331b0a3c4aa2
+      version: -1
+      name: Phish Tank URL Reputation Check
+      description: Checks Phish Tank to check if url is a phish
+      script: Checker|||checkerindi-phish
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      indicator:
+        simple: ${inputs.url}
+      screenshot:
+        simple: "true"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 1250,
+          "y": 360
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "4":
+    id: "4"
+    taskid: fd68105c-e44d-4c02-89cd-b9b0ccb83d28
+    type: regular
+    task:
+      id: fd68105c-e44d-4c02-89cd-b9b0ccb83d28
+      version: -1
+      name: Google Safe Browsing URL Reputation Check
+      description: Checks Google Safe Browsing for url reputation
+      script: Checker|||checkerindi-google
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      indicator:
+        simple: ${inputs.url}
+      screenshot:
+        simple: "true"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 850,
+          "y": 360
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "5":
+    id: "5"
+    taskid: e02a812a-3076-4a47-8fe1-651e5a518b0e
+    type: regular
+    task:
+      id: e02a812a-3076-4a47-8fe1-651e5a518b0e
+      version: -1
+      name: URLscan.io Reputation Check
+      description: Checks URLscan.io for URL reputation along with screenshot of the
+        questionable site
+      script: Checker|||checkerindi-urlscan
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      indicator:
+        simple: ${inputs.url}
+      screenshot:
+        simple: "true"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 1650,
+          "y": 360
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "6":
+    id: "6"
+    taskid: 7985ad53-9529-4208-8d33-c63a3dd44636
+    type: regular
+    task:
+      id: 7985ad53-9529-4208-8d33-c63a3dd44636
+      version: -1
+      name: Cisco Talos Intelligence URL Reputation Check
+      description: Checks Cisco Talos Intelligence for ip or url reputation
+      script: Checker|||checkerindi-cisco
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      indicator:
+        simple: ${inputs.url}
+      mode:
+        simple: url
+      screenshot:
+        simple: "true"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 2050,
+          "y": 360
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+view: |-
+  {
+    "linkLabelsPosition": {},
+    "paper": {
+      "dimensions": {
+        "height": 345,
+        "width": 2380,
+        "x": 50,
+        "y": 110
+      }
+    }
+  }
+inputs:
+- key: url
+  value:
+    simple: ${URL}
+  required: false
+  description: URLs
+  playbookInputQuery: null
+outputs:
+- contextPath: IP.Address
+- contextPath: DBotScore.Indicator
+- contextPath: DBotScore.Type
+- contextPath: DBotScore.Vendor
+- contextPath: DBotScore.Score
+- contextPath: Checker.URL.VirusTotal.score
+- contextPath: Checker.URL.VirusTotal.malicious
+- contextPath: Checker.URL.IBM.score
+- contextPath: Checker.URL.IBM.malicious
+- contextPath: Checker.URL.PhishTank.score
+- contextPath: Checker.URL.PhishTank.malicious
+- contextPath: Checker.URL.GoogleSafeBrowsing.score
+- contextPath: Checker.URL.GoogleSafeBrowsing.malicious
+- contextPath: Checker.URL.URLScan.score
+- contextPath: Checker.URL.URLScan.malicious
+- contextPath: Checker.URL.CiscoTalos.score
+- contextPath: Checker.URL.CiscoTalos.malicious
+sourceplaybookid: b56d427f-15bd-4df3-85c8-83b59803b9b3

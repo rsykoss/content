@@ -1,0 +1,845 @@
+id: Checkerindi
+version: -1
+name: Checkerindi
+description: |
+  Reputation check for a single ip, url or file.
+starttaskid: "0"
+tasks:
+  "0":
+    id: "0"
+    taskid: 12289abb-8ea8-421d-8cb8-34740170e762
+    type: start
+    task:
+      id: 12289abb-8ea8-421d-8cb8-34740170e762
+      version: -1
+      name: ""
+      iscommand: false
+      brand: ""
+      description: ''
+    nexttasks:
+      '#none#':
+      - "2"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 1110,
+          "y": 0
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "2":
+    id: "2"
+    taskid: 9190fe5c-59b2-41c4-8bae-7b291cd69551
+    type: condition
+    task:
+      id: 9190fe5c-59b2-41c4-8bae-7b291cd69551
+      version: -1
+      name: Is there an indicator present?
+      description: Check if a given value exists in the context. Will return 'no'
+        for empty empty arrays. To be used mostly with DQ and selectors.
+      type: condition
+      iscommand: false
+      brand: ""
+    nexttasks:
+      '#default#':
+      - "7"
+      file:
+      - "17"
+      ip:
+      - "3"
+      url:
+      - "6"
+    separatecontext: false
+    conditions:
+    - label: ip
+      condition:
+      - - operator: isExists
+          left:
+            value:
+              simple: inputs.ip
+            iscontext: true
+    - label: url
+      condition:
+      - - operator: isExists
+          left:
+            value:
+              simple: inputs.url
+            iscontext: true
+    - label: file
+      condition:
+      - - operator: isExists
+          left:
+            value:
+              simple: inputs.file
+            iscontext: true
+    view: |-
+      {
+        "position": {
+          "x": 1110,
+          "y": 130
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "3":
+    id: "3"
+    taskid: a8ea58d7-fcbe-431b-8e05-388cb71fc71f
+    type: title
+    task:
+      id: a8ea58d7-fcbe-431b-8e05-388cb71fc71f
+      version: -1
+      name: IP reputation check
+      type: title
+      iscommand: false
+      brand: ""
+      description: ''
+    nexttasks:
+      '#none#':
+      - "21"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": -180,
+          "y": 400
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "6":
+    id: "6"
+    taskid: 2e6d13b7-8353-452e-821d-8e1d7de2e710
+    type: title
+    task:
+      id: 2e6d13b7-8353-452e-821d-8e1d7de2e710
+      version: -1
+      name: URL reputation check
+      type: title
+      iscommand: false
+      brand: ""
+      description: ''
+    nexttasks:
+      '#none#':
+      - "27"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 670,
+          "y": 400
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "7":
+    id: "7"
+    taskid: 7554cf9e-a40b-4adc-8b49-7198de6dcf10
+    type: title
+    task:
+      id: 7554cf9e-a40b-4adc-8b49-7198de6dcf10
+      version: -1
+      name: No indicator provided
+      type: title
+      iscommand: false
+      brand: ""
+      description: ''
+    nexttasks:
+      '#none#':
+      - "8"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 2260,
+          "y": 400
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "8":
+    id: "8"
+    taskid: 0fa9a6da-e208-4e35-8206-41cfb8b90b1c
+    type: regular
+    task:
+      id: 0fa9a6da-e208-4e35-8206-41cfb8b90b1c
+      version: -1
+      name: Print Help text
+      description: Prints text to war room (Markdown supported)
+      scriptName: Print
+      type: regular
+      iscommand: false
+      brand: ""
+    scriptarguments:
+      value:
+        simple: |-
+          # Help
+          ## How to do reputation check for single ioc
+          1. Go to incidents page
+          2. Click create new incidents
+          3. Type the ioc into the "name" field or attach a file (for file reputation check)
+          4. Create incident
+          5. Go to war room to see the process
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 2260,
+          "y": 540
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "17":
+    id: "17"
+    taskid: a7a8e9c8-d619-47d5-81fc-ec28a22af5c4
+    type: title
+    task:
+      id: a7a8e9c8-d619-47d5-81fc-ec28a22af5c4
+      version: -1
+      name: File / Hash reputation check
+      type: title
+      iscommand: false
+      brand: ""
+      description: ''
+    nexttasks:
+      '#none#':
+      - "31"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 1520,
+          "y": 400
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "21":
+    id: "21"
+    taskid: 3a5df9b4-e7fb-47fa-894b-0022a937b2ef
+    type: condition
+    task:
+      id: 3a5df9b4-e7fb-47fa-894b-0022a937b2ef
+      version: -1
+      name: Is it screenshot mode?
+      type: condition
+      iscommand: false
+      brand: ""
+    nexttasks:
+      '#default#':
+      - "23"
+      "yes":
+      - "35"
+    separatecontext: false
+    conditions:
+    - label: "yes"
+      condition:
+      - - operator: isTrue
+          left:
+            value:
+              simple: inputs.screenshot mode
+            iscontext: true
+    view: |-
+      {
+        "position": {
+          "x": -180,
+          "y": 540
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "23":
+    id: "23"
+    taskid: 9c317689-fc6f-426c-852d-0829e50e60a3
+    type: playbook
+    task:
+      id: 9c317689-fc6f-426c-852d-0829e50e60a3
+      version: -1
+      name: Checkerindi_IP
+      playbookName: Checkerindi_IP
+      type: playbook
+      iscommand: false
+      brand: ""
+      description: ''
+    nexttasks:
+      '#none#':
+      - "34"
+    scriptarguments:
+      ip:
+        simple: ${IP}
+    separatecontext: false
+    loop:
+      iscommand: false
+      exitCondition: ""
+      wait: 1
+      max: 100
+    view: |-
+      {
+        "position": {
+          "x": 30,
+          "y": 760
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "27":
+    id: "27"
+    taskid: 609597bd-52ae-401c-8810-d630ca618591
+    type: condition
+    task:
+      id: 609597bd-52ae-401c-8810-d630ca618591
+      version: -1
+      name: Is it screenshot mode?
+      type: condition
+      iscommand: false
+      brand: ""
+    nexttasks:
+      '#default#':
+      - "30"
+      "yes":
+      - "37"
+    separatecontext: false
+    conditions:
+    - label: "yes"
+      condition:
+      - - operator: isTrue
+          left:
+            value:
+              simple: inputs.screenshot mode
+            iscontext: true
+    view: |-
+      {
+        "position": {
+          "x": 670,
+          "y": 540
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "30":
+    id: "30"
+    taskid: 341c4283-0e2f-4aaf-8472-0459fa1815bd
+    type: playbook
+    task:
+      id: 341c4283-0e2f-4aaf-8472-0459fa1815bd
+      version: -1
+      name: Checkerindi_URL
+      playbookName: Checkerindi_URL
+      type: playbook
+      iscommand: false
+      brand: ""
+      description: ''
+    nexttasks:
+      '#none#':
+      - "39"
+    scriptarguments:
+      url:
+        simple: ${URL}
+    separatecontext: false
+    loop:
+      iscommand: false
+      exitCondition: ""
+      wait: 1
+      max: 0
+    view: |-
+      {
+        "position": {
+          "x": 880,
+          "y": 760
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "31":
+    id: "31"
+    taskid: 015cf6cf-904f-45b2-8986-57b596516c81
+    type: condition
+    task:
+      id: 015cf6cf-904f-45b2-8986-57b596516c81
+      version: -1
+      name: Is it screenshot mode?
+      type: condition
+      iscommand: false
+      brand: ""
+    nexttasks:
+      '#default#':
+      - "44"
+      "yes":
+      - "45"
+    separatecontext: false
+    conditions:
+    - label: "yes"
+      condition:
+      - - operator: isTrue
+          left:
+            value:
+              simple: inputs.screenshot mode
+            iscontext: true
+    view: |-
+      {
+        "position": {
+          "x": 1520,
+          "y": 540
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "34":
+    id: "34"
+    taskid: c079ba55-335e-45f7-88a6-da15808c17f4
+    type: regular
+    task:
+      id: c079ba55-335e-45f7-88a6-da15808c17f4
+      version: -1
+      name: Print Formatted Results
+      description: Prints formatted results for single output. If screenshot mode,
+        will return zip file as well
+      script: Checker|||checkerindi-print
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      mode:
+        simple: ip
+      screenshot:
+        simple: "false"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 30,
+          "y": 920
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "35":
+    id: "35"
+    taskid: 6f60e617-0f3b-473a-807a-20d26ca3d16c
+    type: playbook
+    task:
+      id: 6f60e617-0f3b-473a-807a-20d26ca3d16c
+      version: -1
+      name: Checkerindi_IP_Screenshot
+      playbookName: Checkerindi_IP_Screenshot
+      type: playbook
+      iscommand: false
+      brand: ""
+      description: ''
+    nexttasks:
+      '#none#':
+      - "41"
+    scriptarguments:
+      ip:
+        simple: ${IP}
+    separatecontext: false
+    loop:
+      iscommand: false
+      exitCondition: ""
+      wait: 1
+      max: 100
+    view: |-
+      {
+        "position": {
+          "x": -390,
+          "y": 760
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "37":
+    id: "37"
+    taskid: b1d1040b-943b-481b-8405-5d9021a53bf5
+    type: playbook
+    task:
+      id: b1d1040b-943b-481b-8405-5d9021a53bf5
+      version: -1
+      name: Checkerindi_URL_Screenshot
+      playbookName: Checkerindi_URL_Screenshot
+      type: playbook
+      iscommand: false
+      brand: ""
+      description: ''
+    nexttasks:
+      '#none#':
+      - "42"
+    scriptarguments:
+      url:
+        simple: ${URL}
+    separatecontext: false
+    loop:
+      iscommand: false
+      exitCondition: ""
+      wait: 1
+      max: 100
+    view: |-
+      {
+        "position": {
+          "x": 460,
+          "y": 760
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "39":
+    id: "39"
+    taskid: daf9ba79-d536-4534-859d-43350c8739c4
+    type: regular
+    task:
+      id: daf9ba79-d536-4534-859d-43350c8739c4
+      version: -1
+      name: Print Formatted Results
+      description: Prints formatted results for single output. If screenshot mode,
+        will return zip file as well
+      script: Checker|||checkerindi-print
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      mode:
+        simple: url
+      screenshot:
+        simple: "false"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 880,
+          "y": 920
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "40":
+    id: "40"
+    taskid: aa8bcd44-70e1-4b7d-87a3-81ea2a2c3fb4
+    type: regular
+    task:
+      id: aa8bcd44-70e1-4b7d-87a3-81ea2a2c3fb4
+      version: -1
+      name: Print Formatted Results
+      description: Prints formatted results for single output. If screenshot mode,
+        will return zip file as well
+      script: Checker|||checkerindi-print
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      mode:
+        simple: file
+      screenshot:
+        simple: "false"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 1730,
+          "y": 920
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "41":
+    id: "41"
+    taskid: c5148b70-bf3c-4c7f-8405-7832ba801d70
+    type: regular
+    task:
+      id: c5148b70-bf3c-4c7f-8405-7832ba801d70
+      version: -1
+      name: Print Formatted Results
+      description: Prints formatted results for single output. If screenshot mode,
+        will return zip file as well
+      script: Checker|||checkerindi-print
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      mode:
+        simple: ip
+      screenshot:
+        simple: "true"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": -390,
+          "y": 920
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "42":
+    id: "42"
+    taskid: 8847698e-466a-4943-87a7-bd670e52ed6e
+    type: regular
+    task:
+      id: 8847698e-466a-4943-87a7-bd670e52ed6e
+      version: -1
+      name: Print Formatted Results
+      description: Prints formatted results for single output. If screenshot mode,
+        will return zip file as well
+      script: Checker|||checkerindi-print
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      mode:
+        simple: url
+      screenshot:
+        simple: "true"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 460,
+          "y": 920
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "43":
+    id: "43"
+    taskid: 30621741-f580-4ff4-8a6c-0a7595c9e763
+    type: regular
+    task:
+      id: 30621741-f580-4ff4-8a6c-0a7595c9e763
+      version: -1
+      name: Print Formatted Results
+      description: Prints formatted results for single output. If screenshot mode,
+        will return zip file as well
+      script: Checker|||checkerindi-print
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      mode:
+        simple: file
+      screenshot:
+        simple: "true"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 1310,
+          "y": 920
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "44":
+    id: "44"
+    taskid: c49aefda-1610-41c7-868f-fac86049b3a1
+    type: playbook
+    task:
+      id: c49aefda-1610-41c7-868f-fac86049b3a1
+      version: -1
+      name: Checkerindi_File
+      playbookName: Checkerindi_File
+      type: playbook
+      iscommand: false
+      brand: ""
+      description: ''
+    nexttasks:
+      '#none#':
+      - "40"
+    scriptarguments:
+      file:
+        simple: ${File.EntryID}
+    separatecontext: false
+    loop:
+      iscommand: false
+      exitCondition: ""
+      wait: 1
+      max: 100
+    view: |-
+      {
+        "position": {
+          "x": 1730,
+          "y": 760
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "45":
+    id: "45"
+    taskid: 885e4e5b-e8e5-44d9-8fc9-2732c267a69d
+    type: playbook
+    task:
+      id: 885e4e5b-e8e5-44d9-8fc9-2732c267a69d
+      version: -1
+      name: Checkerindi_File_Screenshot
+      playbookName: Checkerindi_File_Screenshot
+      type: playbook
+      iscommand: false
+      brand: ""
+      description: ''
+    nexttasks:
+      '#none#':
+      - "43"
+    scriptarguments:
+      file:
+        simple: ${File.EntryID}
+    separatecontext: false
+    loop:
+      iscommand: false
+      exitCondition: ""
+      wait: 1
+      max: 100
+    view: |-
+      {
+        "position": {
+          "x": 1310,
+          "y": 760
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+view: |-
+  {
+    "linkLabelsPosition": {
+      "27_30_#default#": 0.4,
+      "2_17_file": 0.82,
+      "2_3_ip": 0.73,
+      "2_6_url": 0.82
+    },
+    "paper": {
+      "dimensions": {
+        "height": 1015,
+        "width": 3030,
+        "x": -390,
+        "y": 0
+      }
+    }
+  }
+inputs:
+- key: ip
+  value:
+    simple: ${IP}
+  required: false
+  description: IP reputation check
+  playbookInputQuery:
+- key: url
+  value:
+    simple: ${URL}
+  required: false
+  description: URL reputation check
+  playbookInputQuery:
+- key: file
+  value:
+    simple: ${File}
+  required: false
+  description: File reputation check
+  playbookInputQuery:
+- key: screenshot mode
+  value:
+    complex:
+      root: incident
+      filters:
+      - - operator: containsString
+          left:
+            value:
+              simple: incident.details
+            iscontext: true
+          right:
+            value:
+              simple: screenshot
+      accessor: details
+      transformers:
+      - operator: substringFrom
+        args:
+          from:
+            value:
+              simple: screenshot
+      - operator: trim
+      - operator: toLowerCase
+  required: false
+  description: ""
+  playbookInputQuery:
+outputs:
+- contextPath: File
+  type: unknown
+- contextPath: URL
+  type: unknown
+- contextPath: IP
+  type: unknown
+- contextPath: DBotScore
+  type: unknown
+- contextPath: URL.DetectionEngines
+  description: Total number of engines that checked the indicator.
+- contextPath: URL.PositiveDetections
+  description: Number of engines that positively detected the indicator as malicious.
+- contextPath: File.PositiveDetections
+  description: Number of engines that positively detected the indicator as malicious.
+- contextPath: File.DetectionEngines
+  description: Total number of engines that checked the indicator.
+fromversion: 5.0.0
+tests:
+- No tests (auto formatted)

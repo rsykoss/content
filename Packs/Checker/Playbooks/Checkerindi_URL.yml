@@ -1,0 +1,201 @@
+id: Checkerindi_URL
+version: -1
+name: Checkerindi_URL
+description: Checks for URL reputation using Virus Total, IBM X Force, Google Safe
+  Browsing and Phish Tank. Used as sub-playbook.
+starttaskid: "0"
+tasks:
+  "0":
+    id: "0"
+    taskid: 1e856eda-9a8f-41ff-891b-d0741cfce4ba
+    type: start
+    task:
+      id: 1e856eda-9a8f-41ff-891b-d0741cfce4ba
+      version: -1
+      name: ""
+      iscommand: false
+      brand: ""
+      description: ''
+    nexttasks:
+      '#none#':
+      - "1"
+      - "2"
+      - "3"
+      - "4"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 650,
+          "y": 110
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "1":
+    id: "1"
+    taskid: 81eee2d6-c15d-432c-8044-b4747a755e62
+    type: regular
+    task:
+      id: 81eee2d6-c15d-432c-8044-b4747a755e62
+      version: -1
+      name: Virus Total URL Reputation Check
+      description: Checks virus total reputation for ip or url or hash or file
+      script: Checker|||checkerindi-virustotal
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      indicator:
+        simple: ${inputs.url}
+      mode:
+        simple: url
+      screenshot:
+        simple: "false"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 50,
+          "y": 360
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "2":
+    id: "2"
+    taskid: 618efb84-3093-4a3b-81bf-2d7cc9007d05
+    type: regular
+    task:
+      id: 618efb84-3093-4a3b-81bf-2d7cc9007d05
+      version: -1
+      name: IBM X Force URL Reputation Check
+      description: Checks IBM X Force for reputation of ip or url
+      script: Checker|||checkerindi-ibm
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      indicator:
+        simple: ${inputs.url}
+      mode:
+        simple: url
+      screenshot:
+        simple: "false"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 450,
+          "y": 360
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "3":
+    id: "3"
+    taskid: b5a10a40-7685-43dd-80a4-b6462cd9d03a
+    type: regular
+    task:
+      id: b5a10a40-7685-43dd-80a4-b6462cd9d03a
+      version: -1
+      name: Phish Tank URL Reputation Check
+      description: Checks Phish Tank to check if url is a phish
+      script: Checker|||checkerindi-phish
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      indicator:
+        simple: ${inputs.url}
+      screenshot:
+        simple: "false"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 1250,
+          "y": 360
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "4":
+    id: "4"
+    taskid: 18960e82-935e-4837-8382-fa14572034b9
+    type: regular
+    task:
+      id: 18960e82-935e-4837-8382-fa14572034b9
+      version: -1
+      name: Google Safe Browsing URL Reputation Check
+      description: Checks Google Safe Browsing for url reputation
+      script: Checker|||checkerindi-google
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      indicator:
+        simple: ${inputs.url}
+      screenshot:
+        simple: "false"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 850,
+          "y": 360
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+view: |-
+  {
+    "linkLabelsPosition": {},
+    "paper": {
+      "dimensions": {
+        "height": 345,
+        "width": 1580,
+        "x": 50,
+        "y": 110
+      }
+    }
+  }
+inputs:
+- key: url
+  value:
+    simple: ${URL}
+  required: false
+  description: URLs
+  playbookInputQuery:
+outputs:
+- contextPath: URL.Data
+- contextPath: DBotScore.Indicator
+- contextPath: DBotScore.Type
+- contextPath: DBotScore.Vendor
+- contextPath: DBotScore.Score
+- contextPath: Checker.URL.VirusTotal.score
+- contextPath: Checker.URL.VirusTotal.malicious
+- contextPath: Checker.URL.IBM.score
+- contextPath: Checker.URL.IBM.malicious
+- contextPath: Checker.URL.PhishTank.score
+- contextPath: Checker.URL.PhishTank.malicious
+- contextPath: Checker.URL.GoogleSafeBrowsing.score
+- contextPath: Checker.URL.GoogleSafeBrowsing.malicious
+fromversion: 5.0.0
+tests:
+- No tests (auto formatted)

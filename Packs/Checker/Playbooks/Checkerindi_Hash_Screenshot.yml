@@ -1,0 +1,95 @@
+id: f8e23f21-e9f2-4277-8c76-c21ae23e6519
+version: 9
+name: Checkerindi_Hash_Screenshot
+description: Checks for hash reputation using Virus Total. Screenshot mode is enabled.
+  Used as sub-playbook.
+starttaskid: "0"
+tasks:
+  "0":
+    id: "0"
+    taskid: 06094b41-b60d-4c7e-80ad-40db4af9850b
+    type: start
+    task:
+      id: 06094b41-b60d-4c7e-80ad-40db4af9850b
+      version: -1
+      name: ""
+      iscommand: false
+      brand: ""
+    nexttasks:
+      '#none#':
+      - "1"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 450,
+          "y": 50
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "1":
+    id: "1"
+    taskid: ef07a473-6648-41ed-8ae9-4dd32ba147eb
+    type: regular
+    task:
+      id: ef07a473-6648-41ed-8ae9-4dd32ba147eb
+      version: -1
+      name: Virus Total Hash
+      description: Checks virus total reputation for ip or url or hash or file
+      script: Checker|||checkerindi-virustotal
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      indicator:
+        simple: ${inputs.hash}
+      mode:
+        simple: hash
+      screenshot:
+        simple: "true"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 450,
+          "y": 180
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+view: |-
+  {
+    "linkLabelsPosition": {},
+    "paper": {
+      "dimensions": {
+        "height": 225,
+        "width": 380,
+        "x": 450,
+        "y": 50
+      }
+    }
+  }
+inputs:
+- key: hash
+  value: {}
+  required: false
+  description: File
+  playbookInputQuery: null
+outputs:
+- contextPath: File.MD5
+- contextPath: File.SHA1
+- contextPath: File.SHA256
+- contextPath: DBotScore.Indicator
+- contextPath: DBotScore.Type
+- contextPath: DBotScore.Vendor
+- contextPath: DBotScore.Score
+- contextPath: Checker.File.VirusTotal.score
+- contextPath: Checker.File.VirusTotal.malicious
+sourceplaybookid: b56d427f-15bd-4df3-85c8-83b59803b9b3

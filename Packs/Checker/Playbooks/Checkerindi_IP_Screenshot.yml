@@ -1,0 +1,268 @@
+id: 80c335ec-c3c0-41f9-8a20-334b522c13da
+version: 9
+name: Checkerindi_IP_Screenshot
+description: Checks for IP reputation using Virus Total, Abuse IP DB, IBM X Force,
+  Fraud Guard, Auth0 Signals and Cisco Talos Intelligence. Screenshot mode is enabled.
+  Used as sub-playbook.
+starttaskid: "0"
+tasks:
+  "0":
+    id: "0"
+    taskid: 050dee76-cd56-4e71-890f-9ce7063bf73d
+    type: start
+    task:
+      id: 050dee76-cd56-4e71-890f-9ce7063bf73d
+      version: -1
+      name: ""
+      iscommand: false
+      brand: ""
+    nexttasks:
+      '#none#':
+      - "1"
+      - "2"
+      - "3"
+      - "4"
+      - "5"
+      - "6"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 820,
+          "y": 80
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "1":
+    id: "1"
+    taskid: 506d7d44-2eec-4c88-8ff6-51443c0044d9
+    type: regular
+    task:
+      id: 506d7d44-2eec-4c88-8ff6-51443c0044d9
+      version: -1
+      name: Virus Total Reputation Check
+      description: Checks virus total reputation for ip or url or hash or file
+      script: Checker|||checkerindi-virustotal
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      indicator:
+        simple: ${inputs.ip}
+      mode:
+        simple: ip
+      screenshot:
+        simple: "true"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": -180,
+          "y": 235
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "2":
+    id: "2"
+    taskid: b8be1d6c-ac93-4e69-840e-49d833abf04a
+    type: regular
+    task:
+      id: b8be1d6c-ac93-4e69-840e-49d833abf04a
+      version: -1
+      name: IBM X Force Reputation Check
+      script: Checker|||checkerindi-ibm
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      indicator:
+        simple: ${inputs.ip}
+      mode:
+        simple: ip
+      screenshot:
+        simple: "true"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 220,
+          "y": 235
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "3":
+    id: "3"
+    taskid: b3819617-fa9e-4d77-8046-463b08e9d31b
+    type: regular
+    task:
+      id: b3819617-fa9e-4d77-8046-463b08e9d31b
+      version: -1
+      name: Abuse IP DB Reputation Check
+      description: Checks AbuseIPDB for reputation of IP
+      script: Checker|||checkerindi-abuseip
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      indicator:
+        simple: ${inputs.ip}
+      screenshot:
+        simple: "true"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 620,
+          "y": 235
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "4":
+    id: "4"
+    taskid: 26a6b0a3-7aa1-4992-8c6d-a260892e104f
+    type: regular
+    task:
+      id: 26a6b0a3-7aa1-4992-8c6d-a260892e104f
+      version: -1
+      name: Fraud Guard Reputation Check
+      description: Checks FraudGuard for IP reputation
+      script: Checker|||checkerindi-fraudguard
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      indicator:
+        simple: ${inputs.ip}
+      screenshot:
+        simple: "true"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 1020,
+          "y": 235
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "5":
+    id: "5"
+    taskid: 9fc73edd-51bb-46c4-83f3-f51de1d22183
+    type: regular
+    task:
+      id: 9fc73edd-51bb-46c4-83f3-f51de1d22183
+      version: -1
+      name: Auth0 Reputation Check
+      description: Checks Auth0 for IP reputation
+      script: Checker|||checkerindi-auth0
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      indicator:
+        simple: ${inputs.ip}
+      screenshot:
+        simple: "true"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 1420,
+          "y": 235
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+  "6":
+    id: "6"
+    taskid: fc961151-8804-4adf-8192-279c0bfc2893
+    type: regular
+    task:
+      id: fc961151-8804-4adf-8192-279c0bfc2893
+      version: -1
+      name: Cisco Talos Intelligence IPReputation Check
+      description: Checks Cisco Talos Intelligence for ip or url reputation
+      script: Checker|||checkerindi-cisco
+      type: regular
+      iscommand: true
+      brand: Checker
+    scriptarguments:
+      indicator:
+        simple: ${inputs.ip}
+      mode:
+        simple: ip
+      screenshot:
+        simple: "true"
+    separatecontext: false
+    view: |-
+      {
+        "position": {
+          "x": 1820,
+          "y": 235
+        }
+      }
+    note: false
+    timertriggers: []
+    ignoreworker: false
+    skipunavailable: false
+    quietmode: 0
+view: |-
+  {
+    "linkLabelsPosition": {},
+    "paper": {
+      "dimensions": {
+        "height": 250,
+        "width": 2380,
+        "x": -180,
+        "y": 80
+      }
+    }
+  }
+inputs:
+- key: ip
+  value:
+    simple: ${IP}
+  required: false
+  description: ip address
+  playbookInputQuery: null
+outputs:
+- contextPath: IP.Address
+- contextPath: DBotScore.Indicator
+- contextPath: DBotScore.Type
+- contextPath: DBotScore.Vendor
+- contextPath: DBotScore.Score
+- contextPath: Checker.IP.VirusTotal.malicious
+- contextPath: Checker.IP.VirusTotal.score
+- contextPath: Checker.IP.AbuseIP.score
+- contextPath: Checker.IP.AbuseIP.malicious
+- contextPath: Checker.IP.FraudGuard.score
+- contextPath: Checker.IP.FraudGuard.malicious
+- contextPath: Checker.IP.Auth0.score
+- contextPath: Checker.IP.Auth0.malicious
+- contextPath: Checker.IP.CiscoTalos.score
+- contextPath: Checker.IP.CiscoTalos.malicious
+- contextPath: Checker.IP.IBM.score
+- contextPath: Checker.IP.IBM.malicious
+sourceplaybookid: b56d427f-15bd-4df3-85c8-83b59803b9b3
